@@ -1,0 +1,34 @@
+name: Build Kwork cover
+
+on:
+  push:
+    paths:
+      - "content-assets/2026/08/kwork-cover-source.svg"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install converters
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin webp
+      - name: Build WebP
+        run: |
+          rsvg-convert -w 1600 -h 900 content-assets/2026/08/kwork-cover-source.svg -o /tmp/kwork-cover.png
+          cwebp -quiet -q 86 /tmp/kwork-cover.png -o content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
+          file content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
+      - name: Commit binary cover
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
+          git diff --cached --quiet && exit 0
+          git commit -m "content: build Kwork cover v3"
+          git push
