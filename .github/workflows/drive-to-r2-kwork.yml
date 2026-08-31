@@ -1,0 +1,36 @@
+name: Move correct Kwork cover from Drive to R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/drive-to-r2-kwork.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
+      R2_BUCKET: asgroups-images
+    steps:
+      - name: Download exact PNG from Drive
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 2 -o /tmp/kwork-correct.png 'https://drive.usercontent.google.com/download?id=1yCZdjlEwEjiGaI--B1RhkhaEFld8yc0O&export=download&confirm=t'
+          file /tmp/kwork-correct.png
+          test "$(wc -c < /tmp/kwork-correct.png)" -gt 1000000
+      - name: Upload exact PNG to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp /tmp/kwork-correct.png s3://${R2_BUCKET}/2026/08/kwork-ogranicheniya-cover.png --endpoint-url "$R2_ENDPOINT" --content-type image/png --cache-control 'public,max-age=31536000,immutable'
+          curl -fsS -o /tmp/r2.png https://img.likelyin.ru/2026/08/kwork-ogranicheniya-cover.png
+          cmp /tmp/kwork-correct.png /tmp/r2.png
+          file /tmp/r2.png
+          wc -c /tmp/r2.png
