@@ -1,0 +1,56 @@
+name: Upload VK bot cover via temporary raw bridge
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-vk-cover-drive-bridge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      DRIVE_ID: '1yU8dZBXDVgDQFrpXwazNfqB91P5Gk1TJ'
+      EXPECTED_SHA256: 'b17befb761cb50b040cbcbe05883660394c26cac4aeb1a122dd9cba59cc05a2d'
+      EXPECTED_SIZE: '1963695'
+      OBJECT_KEY: '2026/08/vk-bot-cvetochnyi-magazin-bez-vps.png'
+      PUBLIC_URL: 'https://img.likelyin.ru/2026/08/vk-bot-cvetochnyi-magazin-bez-vps.png'
+    steps:
+      - name: Download exact temporary PNG bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --location --silent --show-error \
+            "https://drive.usercontent.google.com/download?id=${DRIVE_ID}&export=download&confirm=t" \
+            -o /tmp/vk-cover.png
+          test "$(wc -c < /tmp/vk-cover.png)" -eq "$EXPECTED_SIZE"
+          echo "$EXPECTED_SHA256  /tmp/vk-cover.png" | sha256sum -c -
+          test "$(file -b --mime-type /tmp/vk-cover.png)" = 'image/png'
+
+      - name: Binary PUT to R2 Worker
+        shell: bash
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          response="$(curl --fail-with-body --silent --show-error \
+            -X PUT \
+            "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}" \
+            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            -H 'Content-Type: image/png' \
+            -H 'X-ASG-Overwrite: true' \
+            --data-binary '@/tmp/vk-cover.png')"
+          echo "$response" | jq -e --arg url "$PUBLIC_URL" --argjson size "$EXPECTED_SIZE" '.ok == true and .url == $url and .size == $size' >/dev/null
+
+      - name: Verify public R2 object byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${PUBLIC_URL}?verify=${GITHUB_SHA}" -o /tmp/r2-cover.png
+          test "$(wc -c < /tmp/r2-cover.png)" -eq "$EXPECTED_SIZE"
+          echo "$EXPECTED_SHA256  /tmp/r2-cover.png" | sha256sum -c -
+          cmp /tmp/vk-cover.png /tmp/r2-cover.png
+          echo "VERIFIED_R2_URL=$PUBLIC_URL"
