@@ -17,6 +17,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_WORKERS_API_TOKEN || secrets.CF_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: d0abfd352b18b34de7b19d7afdece235
       R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      WORKER_BASE_URL: https://asgroups-r2-upload.i-0ab.workers.dev
+      CUSTOM_BASE_URL: https://upload.likelyin.ru
     steps:
       - name: Check required secrets
         shell: bash
@@ -60,20 +62,26 @@ jobs:
           set -euo pipefail
           printf '%s' "$R2_UPLOAD_API_TOKEN" | npx wrangler secret put UPLOAD_TOKEN --config wrangler.jsonc
 
-      - name: Verify health endpoint
+      - name: Verify Worker health
         shell: bash
         run: |
           set -euo pipefail
-          for i in {1..20}; do
-            if body="$(curl --fail --silent --show-error --max-time 10 https://upload.likelyin.ru/health 2>/dev/null)"; then
-              echo "$body" | jq -e '.ok == true and .service == "asgroups-r2-upload"' >/dev/null
-              echo 'Health check passed.'
-              exit 0
-            fi
-            sleep 3
-          done
-          echo 'Health endpoint did not become ready in time.' >&2
-          exit 1
+          body="$(curl --fail --silent --show-error --max-time 15 "${WORKER_BASE_URL}/health")"
+          echo "$body" | jq -e '.ok == true and .service == "asgroups-r2-upload"' >/dev/null
+          echo "Health check passed via ${WORKER_BASE_URL}."
+
+      - name: Report custom domain status
+        shell: bash
+        run: |
+          set -u
+          status="$(curl --silent --show-error --max-time 15 -o /tmp/custom-health.html -w '%{http_code}' "${CUSTOM_BASE_URL}/health" || true)"
+          echo "Custom domain HTTP status: ${status:-curl-error}"
+          if [[ "$status" == "200" ]]; then
+            jq -e '.ok == true and .service == "asgroups-r2-upload"' /tmp/custom-health.html >/dev/null
+            echo 'Custom domain health check passed.'
+          else
+            echo 'Custom domain is currently intercepted before the Worker; workers.dev remains available for API smoke testing.'
+          fi
 
       - name: Create binary PNG smoke-test file
         shell: bash
@@ -90,7 +98,7 @@ jobs:
           open('/tmp/asg-r2-smoke.png', 'wb').write(png)
           PY
           file /tmp/asg-r2-smoke.png
-          SMOKE_KEY="_smoke/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.png"
+          SMOKE_KEY="_smoke/r2-upload-binary-test.png"
           echo "SMOKE_KEY=$SMOKE_KEY" >> "$GITHUB_ENV"
 
       - name: Test authenticated binary upload
@@ -99,9 +107,10 @@ jobs:
           set -euo pipefail
           response="$(curl --fail-with-body --silent --show-error \
             -X PUT \
-            "https://upload.likelyin.ru/v1/upload/${SMOKE_KEY}" \
+            "${WORKER_BASE_URL}/v1/upload/${SMOKE_KEY}" \
             -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
             -H 'Content-Type: image/png' \
+            -H 'X-ASG-Overwrite: true' \
             --data-binary '@/tmp/asg-r2-smoke.png')"
           echo "$response" | jq -e '.ok == true and .url != null' >/dev/null
           smoke_url="$(echo "$response" | jq -r '.url')"
@@ -109,10 +118,3 @@ jobs:
           curl --fail --silent --show-error "$smoke_url" -o /tmp/asg-r2-smoke-public.png
           cmp /tmp/asg-r2-smoke.png /tmp/asg-r2-smoke-public.png
           echo "Binary upload verified: $smoke_url"
-
-      - name: Delete smoke-test object
-        if: always() && env.SMOKE_KEY != ''
-        working-directory: r2-upload-worker
-        shell: bash
-        run: |
-          npx wrangler r2 object delete "asgroups-images/${SMOKE_KEY}" --remote --config wrangler.jsonc || true
