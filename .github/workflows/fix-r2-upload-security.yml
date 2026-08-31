@@ -1,0 +1,109 @@
+name: Fix R2 Upload Security
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-r2-upload-security.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ZONE_ID: 094fab792493a79a12154ab50532a73f
+      HOSTNAME: upload.likelyin.ru
+    steps:
+      - name: Inspect Bot Fight Mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --silent --show-error \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/bot_management")"
+          echo "$body" | jq '{success, errors, result: {fight_mode: .result.fight_mode, sbfm_definitely_automated: .result.sbfm_definitely_automated, sbfm_likely_automated: .result.sbfm_likely_automated}}'
+
+      - name: Ensure hostname security skip rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/zones/${ZONE_ID}"
+          AUTH="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+
+          entry_body=/tmp/entry.json
+          entry_code="$(curl --silent --show-error -o "$entry_body" -w '%{http_code}' \
+            -H "$AUTH" \
+            "${API}/rulesets/phases/http_request_firewall_custom/entrypoint")"
+
+          if [[ "$entry_code" == "200" ]] && jq -e '.success == true and .result.id != null' "$entry_body" >/dev/null; then
+            RULESET_ID="$(jq -r '.result.id' "$entry_body")"
+            EXISTING_RULE_ID="$(jq -r '.result.rules[]? | select(.ref == "asg_r2_upload_api_bypass") | .id' "$entry_body" | head -n1)"
+          else
+            echo "No accessible custom firewall entrypoint; attempting to create one. HTTP ${entry_code}"
+            jq '{success, errors}' "$entry_body" || cat "$entry_body"
+            create_body=/tmp/create-ruleset.json
+            create_code="$(curl --silent --show-error -o "$create_body" -w '%{http_code}' \
+              -X POST \
+              -H "$AUTH" \
+              -H 'Content-Type: application/json' \
+              "${API}/rulesets" \
+              --data '{"name":"ASG API security exceptions","description":"Narrow security exceptions for machine-to-machine APIs","kind":"zone","phase":"http_request_firewall_custom"}')"
+            if [[ "$create_code" != "200" ]] || ! jq -e '.success == true and .result.id != null' "$create_body" >/dev/null; then
+              echo "Unable to create custom WAF entrypoint. HTTP ${create_code}"
+              jq '{success, errors}' "$create_body" || cat "$create_body"
+              echo 'NEEDS_PERMISSION: add Zone WAF Edit (or Zone Rulesets Edit) to CLOUDFLARE_API_TOKEN.'
+              exit 3
+            fi
+            RULESET_ID="$(jq -r '.result.id' "$create_body")"
+            EXISTING_RULE_ID=""
+          fi
+
+          if [[ -n "${EXISTING_RULE_ID:-}" ]]; then
+            echo "Security skip rule already exists: ${EXISTING_RULE_ID}"
+          else
+            rule_body=/tmp/create-rule.json
+            rule_code="$(curl --silent --show-error -o "$rule_body" -w '%{http_code}' \
+              -X POST \
+              -H "$AUTH" \
+              -H 'Content-Type: application/json' \
+              "${API}/rulesets/${RULESET_ID}/rules" \
+              --data '{
+                "action":"skip",
+                "action_parameters":{
+                  "ruleset":"current",
+                  "phases":["http_ratelimit","http_request_sbfm","http_request_firewall_managed"],
+                  "products":["bic","securityLevel","uaBlock","waf","zoneLockdown","rateLimit"]
+                },
+                "expression":"http.host eq \"upload.likelyin.ru\"",
+                "description":"Bypass interactive security for authenticated R2 upload API",
+                "ref":"asg_r2_upload_api_bypass",
+                "enabled":true,
+                "logging":{"enabled":true},
+                "position":{"before":""}
+              }')"
+            if [[ "$rule_code" != "200" ]] || ! jq -e '.success == true' "$rule_body" >/dev/null; then
+              echo "Unable to create hostname skip rule. HTTP ${rule_code}"
+              jq '{success, errors}' "$rule_body" || cat "$rule_body"
+              echo 'NEEDS_PERMISSION: add Zone WAF Edit (or Zone Rulesets Edit) to CLOUDFLARE_API_TOKEN.'
+              exit 4
+            fi
+            echo "Created hostname-only security skip rule."
+          fi
+
+      - name: Verify custom domain health
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 3
+          code="$(curl --silent --show-error --max-time 15 -o /tmp/health.json -w '%{http_code}' "https://${HOSTNAME}/health" || true)"
+          echo "Custom domain HTTP status: $code"
+          if [[ "$code" == "200" ]]; then
+            cat /tmp/health.json | jq -e '.ok == true and .service == "asgroups-r2-upload"' >/dev/null
+            echo 'CUSTOM_DOMAIN_READY=true'
+          else
+            grep -qi 'Just a moment' /tmp/health.json && echo 'Cloudflare challenge still active.' || true
+            exit 5
+          fi
