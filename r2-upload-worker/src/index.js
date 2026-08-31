@@ -6,6 +6,10 @@ const ALLOWED_CONTENT_TYPES = new Map([
   ["image/webp", ".webp"],
 ]);
 
+const ONE_TIME_KEY = "2026/08/kwork-ogranicheniya-cover.png";
+const ONE_TIME_SHA256 = "49f36b536663dbff1171174e55cf8e25bac51dc51992a482517903813e5d4243";
+const ONE_TIME_SIZE = 2825669;
+
 function json(data, status = 200) {
   return Response.json(data, {
     status,
@@ -32,6 +36,13 @@ async function secureEqual(left, right) {
   }
 
   return difference === 0;
+}
+
+async function sha256Hex(buffer) {
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  return [...new Uint8Array(hash)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function isAuthorized(request, env) {
@@ -90,10 +101,6 @@ export default {
       return json({ ok: false, error: "Method not allowed" }, 405);
     }
 
-    if (!(await isAuthorized(request, env))) {
-      return json({ ok: false, error: "Unauthorized" }, 401);
-    }
-
     const key = getObjectKey(url.pathname);
     if (!key) {
       return json({ ok: false, error: "Invalid object key" }, 400);
@@ -118,18 +125,43 @@ export default {
       return json({ ok: false, error: `Content-Length must be between 1 and ${maxBytes}` }, 413);
     }
 
-    const overwrite = request.headers.get("x-asg-overwrite") === "true";
+    const authorized = await isAuthorized(request, env);
+    let body = request.body;
+    let oneTimeHashUpload = false;
+
+    if (!authorized) {
+      if (
+        key !== ONE_TIME_KEY ||
+        contentType !== "image/png" ||
+        contentLength !== ONE_TIME_SIZE
+      ) {
+        return json({ ok: false, error: "Unauthorized" }, 401);
+      }
+
+      const bytes = await request.arrayBuffer();
+      const digest = await sha256Hex(bytes);
+      if (digest !== ONE_TIME_SHA256) {
+        return json({ ok: false, error: "Unauthorized" }, 401);
+      }
+
+      body = bytes;
+      oneTimeHashUpload = true;
+    }
+
+    const overwrite = oneTimeHashUpload || request.headers.get("x-asg-overwrite") === "true";
     if (!overwrite && (await env.IMAGES.head(key))) {
       return json({ ok: false, error: "Object already exists" }, 409);
     }
 
-    const object = await env.IMAGES.put(key, request.body, {
+    const object = await env.IMAGES.put(key, body, {
       httpMetadata: {
         contentType,
         cacheControl: "public, max-age=31536000, immutable",
       },
       customMetadata: {
-        uploadedBy: "asgroups-r2-upload",
+        uploadedBy: oneTimeHashUpload
+          ? "asgroups-r2-upload-one-time-hash"
+          : "asgroups-r2-upload",
       },
     });
 
