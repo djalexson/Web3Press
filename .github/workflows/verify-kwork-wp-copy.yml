@@ -1,0 +1,33 @@
+name: Verify Kwork WP copy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-kwork-wp-copy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download R2 and WordPress copies
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/r2.webp 'https://img.likelyin.ru/2026/08/kwork-ogranicheniya-cover.webp'
+          curl -fL --retry 3 -o /tmp/wp.webp 'https://asgroups.dev/wp-content/uploads/2026/08/kwork-ogranicheniya-cover.webp'
+          echo '--- FILE ---'
+          file /tmp/r2.webp /tmp/wp.webp
+          echo '--- SIZE ---'
+          wc -c /tmp/r2.webp /tmp/wp.webp
+          echo '--- SHA256 ---'
+          sha256sum /tmp/r2.webp /tmp/wp.webp
+          echo '--- CMP ---'
+          if cmp -s /tmp/r2.webp /tmp/wp.webp; then
+            echo 'IDENTICAL=yes'
+          else
+            echo 'IDENTICAL=no'
+          fi
