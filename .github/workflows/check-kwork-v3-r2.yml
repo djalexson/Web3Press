@@ -1,0 +1,30 @@
+name: Check Kwork v3 in R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/check-kwork-v3-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
+      R2_BUCKET: asgroups-images
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload v3 binary to temporary R2 URL
+        run: |
+          set -euo pipefail
+          test -s content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
+          file content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
+          aws s3 cp content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp s3://${R2_BUCKET}/2026/08/kwork-v3-check.webp --endpoint-url "$R2_ENDPOINT" --content-type image/webp --cache-control 'no-cache'
+          curl -fsS -o /tmp/check.webp https://img.likelyin.ru/2026/08/kwork-v3-check.webp
+          file /tmp/check.webp
+          wc -c /tmp/check.webp
