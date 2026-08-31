@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "asgroups-r2-upload",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-31",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "upload.likelyin.ru",
+      "custom_domain": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "asgroups-images"
+    }
+  ],
+  "vars": {
+    "PUBLIC_BASE_URL": "https://img.likelyin.ru",
+    "MAX_UPLOAD_BYTES": "15728640"
+  }
+}

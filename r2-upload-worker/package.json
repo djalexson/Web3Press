@@ -1,0 +1,14 @@
+{
+  "name": "asgroups-r2-upload-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
