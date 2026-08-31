@@ -1,4 +1,4 @@
-name: Temporary upload generated VK cover to R2
+name: Cleanup temporary VK cover uploader
 
 on:
   push:
@@ -6,79 +6,23 @@ on:
       - '.github/workflows/upload-vk-cover-drive-temp.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  upload:
+  cleanup:
     runs-on: ubuntu-latest
-    env:
-      TRANSPORT_SHA256: '4e41830cdaf60e30d3af2ae558a37a59478b69686d0c00ffa0596514e4be7a9e'
-      TRANSPORT_SIZE: '39522'
-      OBJECT_KEY: '2026/08/vk-bot-cvetochnyi-magazin-bez-vps.png'
-      PUBLIC_URL: 'https://img.likelyin.ru/2026/08/vk-bot-cvetochnyi-magazin-bez-vps.png'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Rebuild generated image transport
+        with:
+          fetch-depth: 0
+      - name: Remove temporary uploader and transport chunks
         shell: bash
         run: |
           set -euo pipefail
-          cat .tmp/vk-cover/chunk00.txt \
-              .tmp/vk-cover/chunk01.txt \
-              .tmp/vk-cover/chunk02.txt \
-              .tmp/vk-cover/chunk03.txt \
-              .tmp/vk-cover/chunk04.txt \
-              .tmp/vk-cover/chunk05.txt \
-            | base64 -d > /tmp/vk-cover-source.webp
-          test "$(wc -c < /tmp/vk-cover-source.webp)" -eq "$TRANSPORT_SIZE"
-          echo "$TRANSPORT_SHA256  /tmp/vk-cover-source.webp" | sha256sum -c -
-          test "$(file -b --mime-type /tmp/vk-cover-source.webp)" = 'image/webp'
-
-      - name: Render final PNG 1536x1024
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m pip install --quiet pillow
-          python3 - <<'PY'
-          from PIL import Image
-          src = Image.open('/tmp/vk-cover-source.webp').convert('RGB')
-          out = src.resize((1536, 1024), Image.Resampling.LANCZOS)
-          out.save('/tmp/vk-cover.png', format='PNG', optimize=True, compress_level=9)
-          PY
-          test "$(file -b --mime-type /tmp/vk-cover.png)" = 'image/png'
-          python3 - <<'PY'
-          from PIL import Image
-          im = Image.open('/tmp/vk-cover.png')
-          assert im.size == (1536, 1024), im.size
-          PY
-          echo "FINAL_SIZE=$(wc -c < /tmp/vk-cover.png)"
-          echo "FINAL_SHA256=$(sha256sum /tmp/vk-cover.png | awk '{print $1}')"
-
-      - name: Binary PUT to R2 upload Worker
-        shell: bash
-        env:
-          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
-        run: |
-          set -euo pipefail
-          test -n "$R2_UPLOAD_API_TOKEN"
-          size="$(wc -c < /tmp/vk-cover.png)"
-          response="$(curl --fail-with-body --silent --show-error \
-            -X PUT \
-            "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}" \
-            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
-            -H 'Content-Type: image/png' \
-            -H 'X-ASG-Overwrite: true' \
-            --data-binary '@/tmp/vk-cover.png')"
-          echo "$response" | jq -e --arg url "$PUBLIC_URL" --argjson size "$size" '.ok == true and .url == $url and .size == $size' >/dev/null
-          echo "Uploaded: $PUBLIC_URL"
-
-      - name: Verify public R2 object byte-for-byte
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error "${PUBLIC_URL}?verify=${GITHUB_SHA}" -o /tmp/r2-cover.png
-          cmp /tmp/vk-cover.png /tmp/r2-cover.png
-          test "$(file -b --mime-type /tmp/r2-cover.png)" = 'image/png'
-          echo "R2_SIZE=$(wc -c < /tmp/r2-cover.png)"
-          echo "R2_SHA256=$(sha256sum /tmp/r2-cover.png | awk '{print $1}')"
-          echo "VERIFIED_R2_URL=$PUBLIC_URL"
+          rm -f .github/workflows/upload-vk-cover-drive-temp.yml
+          rm -rf .tmp/vk-cover
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore: remove temporary VK cover uploader artifacts'
+          git push
