@@ -1,0 +1,97 @@
+name: Update Albato article
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-albato-post.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.WP_USER || secrets.WP_USERNAME || secrets.WORDPRESS_USER || secrets.WORDPRESS_USERNAME }}
+      WP_PASSWORD: ${{ secrets.WP_APP_PASSWORD || secrets.WORDPRESS_APP_PASSWORD || secrets.WP_PASSWORD || secrets.WORDPRESS_PASSWORD }}
+    steps:
+      - name: Update post 722 FAQ and featured image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, re, sys, hashlib, json, urllib.request, urllib.error, base64
+
+          base='https://asgroups.dev'
+          user=os.environ.get('WP_USER','').strip()
+          pwd=os.environ.get('WP_PASSWORD','').strip()
+          if not user or not pwd:
+              print('WORDPRESS_CREDENTIALS_NOT_FOUND')
+              sys.exit(31)
+
+          auth='Basic '+base64.b64encode(f'{user}:{pwd}'.encode()).decode()
+          def req(url, method='GET', data=None, headers=None):
+              h={'Authorization':auth,'User-Agent':'A.S-Groups-GitHub-Runner'}
+              if headers: h.update(headers)
+              body=None if data is None else (data if isinstance(data,(bytes,bytearray)) else json.dumps(data,ensure_ascii=False).encode())
+              if data is not None and not isinstance(data,(bytes,bytearray)): h['Content-Type']='application/json; charset=utf-8'
+              r=urllib.request.Request(url,data=body,headers=h,method=method)
+              with urllib.request.urlopen(r,timeout=90) as x:
+                  return x.read(), dict(x.headers)
+
+          raw,_=req(base+'/wp-json/wp/v2/posts/722?context=edit')
+          post=json.loads(raw)
+          content=post['content']['raw']
+
+          faq='''<section class="asg-faq" aria-labelledby="asg-faq-title">
+          <h2 id="asg-faq-title">FAQ</h2>
+          <details class="asg-faq__item"><summary>Albato получает товары напрямую из Posiflora?</summary><div class="asg-faq__answer"><p>Нет. Данные из Posiflora получает Google Apps Script. Он обрабатывает их, обновляет Google Sheets и только после этого вызывает webhook Albato. Albato отвечает только за последний участок — передачу данных в VK.</p></div></details>
+          <details class="asg-faq__item"><summary>Кто вызывает webhook Albato?</summary><div class="asg-faq__answer"><p>Google Apps Script после получения данных из Posiflora и обновления Google Sheets. Webhook вызывается только тогда, когда отслеживаемые данные товара действительно изменились.</p></div></details>
+          <details class="asg-faq__item"><summary>Зачем нужна Google Sheets?</summary><div class="asg-faq__answer"><p>Таблица хранит текущее состояние и сопоставления: source_id, цену, остаток, фото, vk_item_id, hash и статус синхронизации. Благодаря этому обновление идёт по ID, а не по названию товара.</p></div></details>
+          <details class="asg-faq__item"><summary>Как это снижает расходы на Albato?</summary><div class="asg-faq__answer"><p>Клиент попросил сократить расходы на Albato. Поэтому получение данных из Posiflora, сравнение изменений и промежуточную обработку выполняет Apps Script. Albato получает webhook только при реальном изменении товара — платных операций становится меньше.</p></div></details>
+          <details class="asg-faq__item"><summary>Что синхронизируется в VK?</summary><div class="asg-faq__answer"><p>Название, цена, наличие и остатки, фото, категории или подборки при соответствующей настройке, а также ID, необходимые для последующих обновлений без дублей.</p></div></details>
+          <details class="asg-faq__item"><summary>Можно ли запускать всё автоматически?</summary><div class="asg-faq__answer"><p>Да. Apps Script запускается по расписанию или устанавливаемому триггеру, получает данные Posiflora, обновляет Google Sheets и при изменениях вызывает Albato.</p></div></details>
+          </section>
+          <style>
+          .asg-faq{margin:48px 0}.asg-faq__item{border:1px solid #b9e5d2;border-radius:16px;background:#f7fffb;margin:12px 0;overflow:hidden}.asg-faq__item summary{list-style:none;cursor:pointer;padding:20px 58px 20px 22px;font-weight:700;position:relative;color:#102a38}.asg-faq__item summary::-webkit-details-marker{display:none}.asg-faq__item summary::after{content:'+';position:absolute;right:22px;top:50%;transform:translateY(-50%);font-size:30px;line-height:1;color:#07865f;font-weight:500}.asg-faq__item[open] summary::after{content:'−'}.asg-faq__answer{padding:0 22px 20px;color:#4c6170}.asg-faq__answer p{margin:0}
+          </style>'''
+
+          pat=re.compile(r'<h2[^>]*>\s*FAQ\s*</h2>.*?(?=<h2[^>]*>\s*Официальные источники\s*</h2>)',re.I|re.S)
+          if pat.search(content):
+              new_content=pat.sub(faq+'\n',content,count=1)
+          else:
+              # handles a previously styled FAQ section
+              pat2=re.compile(r'<section[^>]+class=["\'][^"\']*asg-faq[^"\']*["\'][^>]*>.*?</section>\s*(?:<style>.*?</style>)?',re.I|re.S)
+              if pat2.search(content): new_content=pat2.sub(faq,content,count=1)
+              else:
+                  print('FAQ_BLOCK_NOT_FOUND')
+                  sys.exit(32)
+
+          img_url='https://img.likelyin.ru/2026/08/albato-posiflora-vk-sinhronizaciya-tovarov.webp?v=20260831-realistic'
+          with urllib.request.urlopen(img_url,timeout=60) as x: image=x.read()
+          expected='896c5a6765d36cfd1b7682e02f74da34193d32e98e5817f39f9b620e9daa2ba9'
+          sha=hashlib.sha256(image).hexdigest()
+          if sha != expected: raise SystemExit('R2_SHA_MISMATCH '+sha)
+
+          media_body,_=req(base+'/wp-json/wp/v2/media',method='POST',data=image,headers={
+              'Content-Type':'image/webp',
+              'Content-Disposition':'attachment; filename="albato-posiflora-vk-sinhronizaciya-tovarov-realistic.webp"'
+          })
+          media=json.loads(media_body)
+          media_id=media['id']; media_url=media['source_url']
+
+          # verify WordPress kept identical bytes
+          with urllib.request.urlopen(media_url+'?v=20260831-realistic',timeout=60) as x: wp_image=x.read()
+          wp_sha=hashlib.sha256(wp_image).hexdigest()
+          if wp_sha != expected: raise SystemExit('WP_MEDIA_SHA_MISMATCH '+wp_sha)
+
+          upd_body,_=req(base+'/wp-json/wp/v2/posts/722',method='POST',data={'content':new_content,'featured_media':media_id})
+          upd=json.loads(upd_body)
+          if upd.get('id') != 722 or upd.get('featured_media') != media_id: raise SystemExit('POST_UPDATE_VERIFY_FAILED')
+          print('UPDATED_POST=722')
+          print('MEDIA_ID='+str(media_id))
+          print('MEDIA_URL='+media_url)
+          print('SHA256='+expected)
+          print('FAQ_ACCORDION=OK')
+          PY
