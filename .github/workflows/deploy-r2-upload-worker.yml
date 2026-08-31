@@ -1,0 +1,119 @@
+name: Deploy R2 Upload Worker
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'r2-upload-worker/**'
+      - '.github/workflows/deploy-r2-upload-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+    steps:
+      - name: Check required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || missing+=(CLOUDFLARE_API_TOKEN)
+          [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]] || missing+=(CLOUDFLARE_ACCOUNT_ID)
+          [[ -n "${R2_UPLOAD_API_TOKEN:-}" ]] || missing+=(R2_UPLOAD_API_TOKEN)
+          if (( ${#missing[@]} )); then
+            printf 'Missing required GitHub secrets:'
+            printf ' %s' "${missing[@]}"
+            printf '\n'
+            exit 2
+          fi
+          echo 'Required secrets are present.'
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: r2-upload-worker/package.json
+
+      - name: Install dependencies
+        working-directory: r2-upload-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Run tests
+        working-directory: r2-upload-worker
+        run: npm test
+
+      - name: Deploy Worker, R2 binding and custom domain
+        working-directory: r2-upload-worker
+        run: npx wrangler deploy --config wrangler.jsonc
+
+      - name: Sync upload API token to Worker secret
+        working-directory: r2-upload-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$R2_UPLOAD_API_TOKEN" | npx wrangler secret put UPLOAD_TOKEN --config wrangler.jsonc
+
+      - name: Verify health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..20}; do
+            if body="$(curl --fail --silent --show-error --max-time 10 https://upload.likelyin.ru/health 2>/dev/null)"; then
+              echo "$body" | jq -e '.ok == true and .service == "asgroups-r2-upload"' >/dev/null
+              echo 'Health check passed.'
+              exit 0
+            fi
+            sleep 3
+          done
+          echo 'Health endpoint did not become ready in time.' >&2
+          exit 1
+
+      - name: Create binary PNG smoke-test file
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct, zlib
+          def chunk(kind, data):
+              return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+          sig = b'\x89PNG\r\n\x1a\n'
+          ihdr = struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0)
+          raw = b'\x00\x12\x34\x56\xff'
+          png = sig + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+          open('/tmp/asg-r2-smoke.png', 'wb').write(png)
+          PY
+          file /tmp/asg-r2-smoke.png
+          SMOKE_KEY="_smoke/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.png"
+          echo "SMOKE_KEY=$SMOKE_KEY" >> "$GITHUB_ENV"
+
+      - name: Test authenticated binary upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -X PUT \
+            "https://upload.likelyin.ru/v1/upload/${SMOKE_KEY}" \
+            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            -H 'Content-Type: image/png' \
+            --data-binary '@/tmp/asg-r2-smoke.png')"
+          echo "$response" | jq -e '.ok == true and .url != null' >/dev/null
+          smoke_url="$(echo "$response" | jq -r '.url')"
+          echo "SMOKE_URL=$smoke_url" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error "$smoke_url" -o /tmp/asg-r2-smoke-public.png
+          cmp /tmp/asg-r2-smoke.png /tmp/asg-r2-smoke-public.png
+          echo "Binary upload verified: $smoke_url"
+
+      - name: Delete smoke-test object
+        if: always() && env.SMOKE_KEY != ''
+        working-directory: r2-upload-worker
+        shell: bash
+        run: |
+          npx wrangler r2 object delete "asgroups-images/${SMOKE_KEY}" --remote --config wrangler.jsonc || true
