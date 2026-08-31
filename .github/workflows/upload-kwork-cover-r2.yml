@@ -1,0 +1,65 @@
+name: Upload Kwork cover to R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-kwork-cover-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
+      R2_BUCKET: asgroups-images
+      R2_KEY: 2026/08/kwork-ogranicheniya-cover.webp
+      PUBLIC_URL: https://img.likelyin.ru/2026/08/kwork-ogranicheniya-cover.webp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check R2 credentials
+        shell: bash
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error::R2 credentials are missing. Add R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY repository secrets."
+            exit 1
+          fi
+
+      - name: Validate source image
+        shell: bash
+        run: |
+          test -s content-assets/2026/08/kwork-previous-cover-final.webp
+          file content-assets/2026/08/kwork-previous-cover-final.webp
+
+      - name: Upload binary WebP to Cloudflare R2
+        shell: bash
+        run: |
+          aws s3 cp \
+            content-assets/2026/08/kwork-previous-cover-final.webp \
+            "s3://${R2_BUCKET}/${R2_KEY}" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type image/webp \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Verify public URL
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -fsS -o /tmp/kwork-cover.webp "$PUBLIC_URL"; then
+              test -s /tmp/kwork-cover.webp
+              file /tmp/kwork-cover.webp
+              echo "Uploaded: $PUBLIC_URL"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Public R2 URL is not reachable"
+          exit 1
