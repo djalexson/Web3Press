@@ -1,0 +1,91 @@
+name: Disable Bot Fight Mode for R2 Upload
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/disable-bot-fight-for-r2-upload.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  disable-and-verify:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      ZONE_ID: 094fab792493a79a12154ab50532a73f
+      HOSTNAME: upload.likelyin.ru
+    steps:
+      - name: Disable Bot Fight Mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -X PUT \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/bot_management" \
+            --data '{"fight_mode":false}')"
+          echo "$response" | jq -e '.success == true' >/dev/null
+          echo 'Bot Fight Mode disabled.'
+
+      - name: Confirm Bot Fight Mode state
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/bot_management")"
+          echo "$response" | jq -e '.success == true and .result.fight_mode == false' >/dev/null
+          echo 'Confirmed: fight_mode=false.'
+
+      - name: Verify custom domain health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..20}; do
+            status="$(curl --silent --show-error --max-time 15 -o /tmp/health.json -w '%{http_code}' "https://${HOSTNAME}/health" || true)"
+            if [[ "$status" == "200" ]] && jq -e '.ok == true and .service == "asgroups-r2-upload"' /tmp/health.json >/dev/null; then
+              echo 'Custom domain health check passed.'
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Custom domain did not become ready. Last status: ${status:-curl-error}" >&2
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+      - name: Create binary PNG smoke-test file
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct, zlib
+          def chunk(kind, data):
+              return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+          sig = b'\x89PNG\r\n\x1a\n'
+          ihdr = struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0)
+          raw = b'\x00\x12\x34\x56\xff'
+          png = sig + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+          open('/tmp/asg-r2-custom-domain-smoke.png', 'wb').write(png)
+          PY
+          echo 'SMOKE_KEY=_smoke/custom-domain-binary-test.png' >> "$GITHUB_ENV"
+
+      - name: Test authenticated binary upload via custom domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -X PUT \
+            "https://${HOSTNAME}/v1/upload/${SMOKE_KEY}" \
+            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            -H 'Content-Type: image/png' \
+            -H 'X-ASG-Overwrite: true' \
+            --data-binary '@/tmp/asg-r2-custom-domain-smoke.png')"
+          echo "$response" | jq -e '.ok == true and .url != null' >/dev/null
+          smoke_url="$(echo "$response" | jq -r '.url')"
+          curl --fail --silent --show-error "$smoke_url" -o /tmp/asg-r2-custom-domain-smoke-public.png
+          cmp /tmp/asg-r2-custom-domain-smoke.png /tmp/asg-r2-custom-domain-smoke-public.png
+          echo "Binary upload verified via custom domain: $smoke_url"
