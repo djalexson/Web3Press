@@ -18,13 +18,21 @@ jobs:
       R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
       R2_BUCKET: asgroups-images
     steps:
-      - uses: actions/checkout@v4
-      - name: Upload v3 binary to temporary R2 URL
+      - name: Download exact previous PNG from Google Drive
+        shell: bash
         run: |
           set -euo pipefail
-          test -s content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
-          file content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp
-          aws s3 cp content-assets/2026/08/kwork-six-years-citizenship-cover-v3.webp s3://${R2_BUCKET}/2026/08/kwork-v3-check.webp --endpoint-url "$R2_ENDPOINT" --content-type image/webp --cache-control 'no-cache'
-          curl -fsS -o /tmp/check.webp https://img.likelyin.ru/2026/08/kwork-v3-check.webp
-          file /tmp/check.webp
-          wc -c /tmp/check.webp
+          curl -fL --retry 2 -o /tmp/kwork-correct.png 'https://drive.usercontent.google.com/download?id=1yCZdjlEwEjiGaI--B1RhkhaEFld8yc0O&export=download&confirm=t'
+          file /tmp/kwork-correct.png
+          SIZE=$(wc -c < /tmp/kwork-correct.png)
+          echo "SIZE=$SIZE"
+          test "$SIZE" -eq 1847772
+      - name: Upload exact PNG binary to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp /tmp/kwork-correct.png s3://${R2_BUCKET}/2026/08/kwork-ogranicheniya-cover.png --endpoint-url "$R2_ENDPOINT" --content-type image/png --cache-control 'public,max-age=31536000,immutable'
+          curl -fsS -o /tmp/r2.png https://img.likelyin.ru/2026/08/kwork-ogranicheniya-cover.png
+          cmp /tmp/kwork-correct.png /tmp/r2.png
+          file /tmp/r2.png
+          wc -c /tmp/r2.png
