@@ -1,0 +1,88 @@
+name: Upload Albato Posiflora VK cover
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upload-albato-posiflora-vk-cover.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate and upload cover
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+          OBJECT_KEY: 2026/08/albato-posiflora-vk-sinhronizaciya-tovarov.webp
+          PUBLIC_URL: https://img.likelyin.ru/2026/08/albato-posiflora-vk-sinhronizaciya-tovarov.webp
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          import hashlib
+          W,H=1536,1024
+          img=Image.new('RGB',(W,H),(8,20,48))
+          p=img.load()
+          for y in range(H):
+              for x in range(W):
+                  t=x/W; u=y/H
+                  p[x,y]=(int(8+18*t),int(20+24*t),int(48+55*t+12*(1-u)))
+          d=ImageDraw.Draw(img)
+          # soft background accents
+          d.ellipse((980,-180,1650,500), fill=(33,62,145))
+          d.ellipse((-160,610,560,1280), fill=(20,50,108))
+          d.rounded_rectangle((60,58,308,116),radius=22,fill=(248,249,252))
+          fb='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+          fr='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+          brand=ImageFont.truetype(fb,26); title=ImageFont.truetype(fb,56); sub=ImageFont.truetype(fr,29); mid=ImageFont.truetype(fb,28); small=ImageFont.truetype(fr,22)
+          d.text((88,73),'A.S GROUPS',font=brand,fill=(25,37,72))
+          d.text((70,176),'Как я синхронизировал товары',font=title,fill='white')
+          d.text((70,250),'Posiflora с ВКонтакте через Albato',font=title,fill=(176,190,255))
+          d.text((72,347),'Реальный кейс цветочного магазина: товары, цены, остатки, фото и API',font=sub,fill=(229,235,248))
+          # flow boxes
+          cards=[('POSIFLORA',(95,505,395,650),(41,146,95)),('ALBATO',(615,505,915,650),(236,108,52)),('ВКОНТАКТЕ',(1135,505,1435,650),(52,116,235))]
+          for label,b,color in cards:
+              d.rounded_rectangle(b,radius=28,fill=(245,247,252),outline=color,width=5)
+              tw=d.textbbox((0,0),label,font=mid)[2]
+              d.text(((b[0]+b[2]-tw)/2,b[1]+48),label,font=mid,fill=color)
+          # arrows
+          for x1,x2 in [(410,600),(930,1120)]:
+              y=577
+              d.line((x1,y,x2,y),fill=(113,164,255),width=10)
+              d.polygon([(x2,y),(x2-28,y-18),(x2-28,y+18)],fill=(113,164,255))
+          # benefits
+          benefits=[('Актуальные цены',(88,760,355,842)),('Контроль остатков',(385,760,705,842)),('Фото и описания',(735,760,1010,842)),('Без дублей',(1040,760,1290,842))]
+          for label,b in benefits:
+              d.rounded_rectangle(b,radius=22,fill=(20,32,70),outline=(93,122,235),width=2)
+              d.text((b[0]+24,b[1]+23),label,font=small,fill=(238,241,250))
+          d.text((74,910),'Posiflora → Albato → VK   •   401 / 500   •   сопоставление ID   •   свой код там, где no-code уже мало',font=small,fill=(190,202,233))
+          out='/tmp/cover.webp'
+          img.save(out,'WEBP',quality=91,method=6)
+          check=Image.open(out); check.load(); assert check.format=='WEBP' and check.size==(1536,1024)
+          data=open(out,'rb').read(); print('generated',check.format,check.size,len(data),'sha256='+hashlib.sha256(data).hexdigest())
+          PY
+          test -s /tmp/cover.webp
+          test "$(file -b --mime-type /tmp/cover.webp)" = 'image/webp'
+          source_sha=$(sha256sum /tmp/cover.webp | awk '{print $1}')
+          response=$(curl --fail-with-body --silent --show-error \
+            --request PUT \
+            --header "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            --header 'Content-Type: image/webp' \
+            --data-binary '@/tmp/cover.webp' \
+            "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}")
+          echo "$response" | jq -e '.ok == true' >/dev/null
+          curl --fail --silent --show-error --location "$PUBLIC_URL" -o /tmp/public.webp
+          test "$(file -b --mime-type /tmp/public.webp)" = 'image/webp'
+          public_sha=$(sha256sum /tmp/public.webp | awk '{print $1}')
+          test "$source_sha" = "$public_sha"
+          python3 - <<'PY'
+          from PIL import Image
+          im=Image.open('/tmp/public.webp'); im.load(); assert im.format=='WEBP' and im.size==(1536,1024)
+          print('public image verified:', im.format, im.size)
+          PY
+          echo "R2 cover verified: $PUBLIC_URL"
+          echo "sha256=$public_sha"
