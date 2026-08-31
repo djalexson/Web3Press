@@ -1,0 +1,63 @@
+name: Diagnose R2 Upload Domain
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diagnose-r2-upload-domain.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: d0abfd352b18b34de7b19d7afdece235
+    steps:
+      - name: Test workers.dev health
+        shell: bash
+        run: |
+          set -u
+          echo '=== workers.dev health ==='
+          curl -i --fail-with-body --silent --show-error --max-time 15 \
+            https://asgroups-r2-upload.i-0ab.workers.dev/health || true
+
+      - name: Inspect Cloudflare custom domain registration
+        shell: bash
+        run: |
+          set -u
+          echo '=== Workers custom domain API ==='
+          curl --silent --show-error \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains?hostname=upload.likelyin.ru" \
+            | jq '{success, errors, result: [.result[]? | {id, hostname, service, zone_name, zone_id, cert_id}]}'
+
+      - name: Inspect public DNS
+        shell: bash
+        run: |
+          set -u
+          echo '=== system resolver ==='
+          getent ahosts upload.likelyin.ru || true
+          echo '=== Cloudflare 1.1.1.1 ==='
+          dig +short A upload.likelyin.ru @1.1.1.1 || true
+          dig +short AAAA upload.likelyin.ru @1.1.1.1 || true
+          dig +short CNAME upload.likelyin.ru @1.1.1.1 || true
+          echo '=== Google 8.8.8.8 ==='
+          dig +short A upload.likelyin.ru @8.8.8.8 || true
+          echo '=== likelyin.ru nameservers ==='
+          dig +short NS likelyin.ru @1.1.1.1 || true
+          echo '=== DNS over HTTPS response ==='
+          curl --silent --show-error --max-time 15 \
+            'https://cloudflare-dns.com/dns-query?name=upload.likelyin.ru&type=A' \
+            -H 'accept: application/dns-json' \
+            | jq '{Status, Answer}' || true
+
+      - name: Test custom domain health with diagnostics
+        shell: bash
+        run: |
+          set -u
+          echo '=== custom domain curl ==='
+          curl -i --fail-with-body --show-error --max-time 15 \
+            https://upload.likelyin.ru/health || true
