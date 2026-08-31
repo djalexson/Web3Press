@@ -1,0 +1,75 @@
+name: Upload Albato Posiflora VK cover
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upload-albato-posiflora-vk-cover.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate and upload cover
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+          OBJECT_KEY: 2026/08/albato-posiflora-vk-sinhronizaciya-tovarov.webp
+          PUBLIC_URL: https://img.likelyin.ru/2026/08/albato-posiflora-vk-sinhronizaciya-tovarov.webp
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          import hashlib
+          W,H=1536,1024
+          img=Image.new('RGB',(W,H),(8,20,48))
+          p=img.load()
+          for y in range(H):
+              for x in range(W):
+                  t=x/W; u=y/H
+                  p[x,y]=(int(8+18*t),int(20+24*t),int(48+55*t+12*(1-u)))
+          d=ImageDraw.Draw(img)
+          d.ellipse((980,-180,1650,500), fill=(33,62,145)); d.ellipse((-160,610,560,1280), fill=(20,50,108))
+          fb='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'; fr='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+          brand=ImageFont.truetype(fb,26); title=ImageFont.truetype(fb,50); sub=ImageFont.truetype(fr,26); mid=ImageFont.truetype(fb,22); small=ImageFont.truetype(fr,19)
+          d.rounded_rectangle((60,58,308,116),radius=22,fill=(248,249,252)); d.text((88,73),'A.S GROUPS',font=brand,fill=(25,37,72))
+          d.text((70,165),'Как я синхронизировал товары',font=title,fill='white')
+          d.text((70,232),'Posiflora с каталогом ВКонтакте',font=title,fill=(176,190,255))
+          d.text((72,320),'Posiflora → Google Apps Script → Google Sheets → webhook Albato → VK',font=sub,fill=(229,235,248))
+          d.text((72,365),'Реальный кейс: API, таблица, webhook, цены, остатки, фото и защита от дублей',font=sub,fill=(210,222,246))
+          cards=[('POSIFLORA',(25,505,270,650),(41,146,95)),('APPS SCRIPT',(310,505,570,650),(66,133,244)),('GOOGLE SHEETS',(610,505,910,650),(45,145,82)),('ALBATO',(950,505,1200,650),(236,108,52)),('ВК',(1240,505,1500,650),(52,116,235))]
+          for label,b,color in cards:
+              d.rounded_rectangle(b,radius=24,fill=(245,247,252),outline=color,width=4)
+              tw=d.textbbox((0,0),label,font=mid)[2]; d.text(((b[0]+b[2]-tw)/2,b[1]+49),label,font=mid,fill=color)
+          for x1,x2 in [(278,302),(578,602),(918,942),(1208,1232)]:
+              y=578; d.line((x1,y,x2,y),fill=(113,164,255),width=8); d.polygon([(x2,y),(x2-16,y-12),(x2-16,y+12)],fill=(113,164,255))
+          notes=[('1. Apps Script получает товары и остатки из Posiflora',(70,735)),('2. Скрипт записывает и обновляет данные в Google Sheets',(70,780)),('3. После обновления скрипт дёргает webhook Albato',(70,825)),('4. Albato берёт подготовленные данные и обновляет товары ВК',(70,870))]
+          for txt,pos in notes: d.text(pos,txt,font=small,fill=(235,240,250))
+          d.rounded_rectangle((900,725,1465,920),radius=24,fill=(18,31,69),outline=(91,122,238),width=2)
+          d.text((935,755),'Что синхронизируется:',font=mid,fill='white')
+          d.text((935,800),'название • цена • остаток • фото • описание • ID',font=small,fill=(206,219,248))
+          d.text((935,842),'Posiflora API • Apps Script • Sheets • webhook',font=small,fill=(180,197,236))
+          d.text((935,882),'Albato → VK • повторные запуски • без дублей',font=small,fill=(180,197,236))
+          out='/tmp/cover.webp'; img.save(out,'WEBP',quality=91,method=6)
+          check=Image.open(out); check.load(); assert check.format=='WEBP' and check.size==(1536,1024)
+          data=open(out,'rb').read(); print('generated',check.format,check.size,len(data),'sha256='+hashlib.sha256(data).hexdigest())
+          PY
+          test -s /tmp/cover.webp
+          test "$(file -b --mime-type /tmp/cover.webp)" = 'image/webp'
+          source_sha=$(sha256sum /tmp/cover.webp | awk '{print $1}')
+          response=$(curl --fail-with-body --silent --show-error --request PUT --header "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" --header 'Content-Type: image/webp' --header 'X-ASG-Overwrite: true' --data-binary '@/tmp/cover.webp' "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}")
+          echo "$response" | jq -e '.ok == true' >/dev/null
+          curl --fail --silent --show-error --location "$PUBLIC_URL" -o /tmp/public.webp
+          test "$(file -b --mime-type /tmp/public.webp)" = 'image/webp'
+          public_sha=$(sha256sum /tmp/public.webp | awk '{print $1}')
+          test "$source_sha" = "$public_sha"
+          python3 - <<'PY'
+          from PIL import Image
+          im=Image.open('/tmp/public.webp'); im.load(); assert im.format=='WEBP' and im.size==(1536,1024)
+          print('public image verified:', im.format, im.size)
+          PY
+          echo "R2 cover verified: $PUBLIC_URL"
+          echo "sha256=$public_sha"
