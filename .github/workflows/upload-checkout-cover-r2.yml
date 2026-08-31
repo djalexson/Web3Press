@@ -1,0 +1,42 @@
+name: Upload checkout cover to R2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upload-checkout-cover-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload exact WebP to R2
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+          API_BASE: https://asgroups-r2-upload.i-0ab.workers.dev
+          OBJECT_KEY: 2026/08/woocommerce-checkout-block-optimizaciya.webp
+          PUBLIC_URL: https://img.likelyin.ru/2026/08/woocommerce-checkout-block-optimizaciya.webp
+        run: |
+          set -euo pipefail
+          src='content-assets/2026/08/woocommerce-checkout-block-optimizaciya.webp'
+          test -s "$src"
+          test "$(file -b --mime-type "$src")" = 'image/webp'
+          source_sha=$(sha256sum "$src" | awk '{print $1}')
+          response=$(curl --fail-with-body --silent --show-error \
+            --request PUT \
+            --header "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            --header 'Content-Type: image/webp' \
+            --header 'X-ASG-Overwrite: true' \
+            --data-binary "@$src" \
+            "${API_BASE}/v1/upload/${OBJECT_KEY}")
+          echo "$response" | jq -e '.ok == true' >/dev/null
+          curl --fail --silent --show-error --location "$PUBLIC_URL" -o /tmp/public.webp
+          test "$(file -b --mime-type /tmp/public.webp)" = 'image/webp'
+          public_sha=$(sha256sum /tmp/public.webp | awk '{print $1}')
+          test "$source_sha" = "$public_sha"
+          echo "R2 cover verified: $PUBLIC_URL"
+          echo "sha256=$public_sha"
