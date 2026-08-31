@@ -1,0 +1,58 @@
+name: Upload VK bot cover to R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-vk-bot-cover-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      BLOB_SHA: d14cf9552409cd53778f7c5ea73e4ea8d7c5098f
+      EXPECTED_SHA256: 3bc1a62bc4a35f59683ff093aaa208df6a169a176acf2664159f4a0a1853cb7d
+      EXPECTED_SIZE: '1354960'
+      OBJECT_KEY: 2026/08/vk-bot-cvetochnyi-magazin-bez-vps.webp
+      PUBLIC_URL: https://img.likelyin.ru/2026/08/vk-bot-cvetochnyi-magazin-bez-vps.webp
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+    steps:
+      - name: Reconstruct exact lossless cover
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs/${BLOB_SHA}" \
+            -o "$RUNNER_TEMP/blob.json"
+          jq -r '.content' "$RUNNER_TEMP/blob.json" | tr -d '\n' | base64 -d > "$RUNNER_TEMP/cover.webp"
+          test "$(wc -c < "$RUNNER_TEMP/cover.webp" | tr -d ' ')" = "$EXPECTED_SIZE"
+          echo "$EXPECTED_SHA256  $RUNNER_TEMP/cover.webp" | sha256sum -c -
+          test "$(file -b --mime-type "$RUNNER_TEMP/cover.webp")" = 'image/webp'
+
+      - name: Upload binary to R2 Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -X PUT \
+            "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}" \
+            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            -H 'Content-Type: image/webp' \
+            -H 'X-ASG-Overwrite: true' \
+            --data-binary "@$RUNNER_TEMP/cover.webp" \
+            -o "$RUNNER_TEMP/r2.json"
+          jq -e --arg u "$PUBLIC_URL" '.ok == true and .url == $u' "$RUNNER_TEMP/r2.json" >/dev/null
+
+      - name: Verify public R2 bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${PUBLIC_URL}?verify=${GITHUB_SHA}" -o "$RUNNER_TEMP/public.webp"
+          echo "$EXPECTED_SHA256  $RUNNER_TEMP/public.webp" | sha256sum -c -
+          test "$(wc -c < "$RUNNER_TEMP/public.webp" | tr -d ' ')" = "$EXPECTED_SIZE"
+          echo "R2_COVER_VERIFIED=$PUBLIC_URL"
