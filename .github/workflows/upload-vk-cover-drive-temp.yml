@@ -12,7 +12,7 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     env:
-      SOURCE_URL: 'https://drive.usercontent.google.com/download?id=1jUYjkUH9F6Sd-gW_Vop1fLbAn_pgGVJ6&export=download&confirm=t'
+      SOURCE_URL: 'https://drive.usercontent.google.com/download?id=1Aqde6Z0x2KcRXLczi2uvXjkxLapMjW4c&export=download&confirm=t'
       EXPECTED_SHA256: '9e1ae5f5bcc2ef0b5b5c6bb7285814d708c9f4d62f16d21f91352677a4acb983'
       EXPECTED_SIZE: '2181289'
       OBJECT_KEY: '2026/08/vk-bot-cvetochnyi-magazin-bez-vps.png'
