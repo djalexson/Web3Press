@@ -36,29 +36,34 @@ jobs:
           d.ellipse((-160,610,560,1280), fill=(20,50,108))
           fb='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
           fr='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-          brand=ImageFont.truetype(fb,26); title=ImageFont.truetype(fb,50); sub=ImageFont.truetype(fr,27); mid=ImageFont.truetype(fb,22); small=ImageFont.truetype(fr,20)
+          brand=ImageFont.truetype(fb,26); title=ImageFont.truetype(fb,50); sub=ImageFont.truetype(fr,26); mid=ImageFont.truetype(fb,21); small=ImageFont.truetype(fr,19)
           d.rounded_rectangle((60,58,308,116),radius=22,fill=(248,249,252))
           d.text((88,73),'A.S GROUPS',font=brand,fill=(25,37,72))
-          d.text((70,170),'Как я синхронизировал товары',font=title,fill='white')
-          d.text((70,238),'цветочного магазина с ВКонтакте',font=title,fill=(176,190,255))
-          d.text((72,326),'Google Apps Script → Albato → Google Sheets → Albato → VK',font=sub,fill=(229,235,248))
-          d.text((72,370),'Реальный кейс: webhook, таблица, цены, остатки, фото и защита от дублей',font=sub,fill=(210,222,246))
-          cards=[('APPS SCRIPT',(38,510,288,642),(66,133,244)),('ALBATO #1',(337,510,587,642),(236,108,52)),('GOOGLE SHEETS',(636,510,936,642),(45,145,82)),('ALBATO #2',(985,510,1235,642),(236,108,52)),('ВК',(1284,510,1494,642),(52,116,235))]
+          d.text((70,165),'Как я синхронизировал товары',font=title,fill='white')
+          d.text((70,232),'Posiflora с каталогом ВКонтакте',font=title,fill=(176,190,255))
+          d.text((72,320),'Google Apps Script + Posiflora → Albato → Google Sheets → Albato → VK',font=sub,fill=(229,235,248))
+          d.text((72,365),'Реальный кейс: API, webhook, таблица, цены, остатки, фото и защита от дублей',font=sub,fill=(210,222,246))
+          cards=[('APPS SCRIPT\n+ POSIFLORA',(28,500,310,650),(66,133,244)),('ALBATO #1',(350,500,600,650),(236,108,52)),('GOOGLE SHEETS',(640,500,940,650),(45,145,82)),('ALBATO #2',(980,500,1230,650),(236,108,52)),('ВК',(1270,500,1500,650),(52,116,235))]
           for label,b,color in cards:
               d.rounded_rectangle(b,radius=24,fill=(245,247,252),outline=color,width=4)
-              tw=d.textbbox((0,0),label,font=mid)[2]
-              d.text(((b[0]+b[2]-tw)/2,b[1]+46),label,font=mid,fill=color)
-          for x1,x2 in [(294,329),(593,628),(942,977),(1241,1276)]:
-              y=576
+              lines=label.split('\n')
+              yy=b[1]+40
+              for line in lines:
+                  tw=d.textbbox((0,0),line,font=mid)[2]
+                  d.text(((b[0]+b[2]-tw)/2,yy),line,font=mid,fill=color)
+                  yy+=32
+          for x1,x2 in [(316,342),(606,632),(946,972),(1236,1262)]:
+              y=575
               d.line((x1,y,x2,y),fill=(113,164,255),width=8)
-              d.polygon([(x2,y),(x2-18,y-13),(x2-18,y+13)],fill=(113,164,255))
-          notes=[('1. Скрипт дёргает webhook Albato',(80,735)),('2. Первый Albato пишет данные в таблицу',(80,780)),('3. Таблица хранит нормализованный каталог',(80,825)),('4. Второй Albato обновляет товары ВК',(80,870))]
+              d.polygon([(x2,y),(x2-16,y-12),(x2-16,y+12)],fill=(113,164,255))
+          notes=[('1. Apps Script запрашивает товары и остатки Posiflora',(70,735)),('2. Скрипт отправляет подготовленные данные в webhook Albato',(70,780)),('3. Первый Albato обновляет строки Google Sheets',(70,825)),('4. Второй Albato читает таблицу и синхронизирует каталог ВК',(70,870))]
           for txt,pos in notes:
               d.text(pos,txt,font=small,fill=(235,240,250))
-          d.rounded_rectangle((890,735,1450,910),radius=24,fill=(18,31,69),outline=(91,122,238),width=2)
-          d.text((925,767),'Что синхронизируется:',font=mid,fill='white')
-          d.text((925,812),'цены • остатки • фото • описания • ID товаров',font=small,fill=(206,219,248))
-          d.text((925,854),'401 / 500 • webhook • повторные запуски • без дублей',font=small,fill=(180,197,236))
+          d.rounded_rectangle((905,725,1465,918),radius=24,fill=(18,31,69),outline=(91,122,238),width=2)
+          d.text((940,755),'Что проходит по цепочке:',font=mid,fill='white')
+          d.text((940,800),'название • цена • остаток • фото • описание • ID',font=small,fill=(206,219,248))
+          d.text((940,842),'401 / 500 • Bearer API • webhook • повторные запуски',font=small,fill=(180,197,236))
+          d.text((940,882),'сопоставление карточек • защита от дублей',font=small,fill=(180,197,236))
           out='/tmp/cover.webp'
           img.save(out,'WEBP',quality=91,method=6)
           check=Image.open(out); check.load(); assert check.format=='WEBP' and check.size==(1536,1024)
