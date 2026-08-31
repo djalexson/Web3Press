@@ -34,3 +34,4 @@ jobs:
           cmp /tmp/kwork-correct.png /tmp/r2.png
           file /tmp/r2.png
           wc -c /tmp/r2.png
+# trigger
