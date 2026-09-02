@@ -15,16 +15,16 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$R2_UPLOAD_API_TOKEN"
+          python -m pip install --quiet pillow
           SRC='https://images.unsplash.com/photo-1763568258320-c954a19683e3?auto=format&fit=crop&fm=jpg&q=88&w=2400'
           KEY='2026/09/cloudflare-workers-d1-arhitektura-api-integracii.webp'
           curl -L --fail --silent --show-error "$SRC" -o source.jpg
           python - <<'PY'
           from PIL import Image, ImageOps
+          import os
           im=Image.open('source.jpg').convert('RGB')
           im=ImageOps.fit(im,(1536,1024),method=Image.Resampling.LANCZOS)
-          q=76
-          im.save('cover.webp','WEBP',quality=q,method=6)
-          import os
+          im.save('cover.webp','WEBP',quality=76,method=6)
           if os.path.getsize('cover.webp')>256000:
               im.save('cover.webp','WEBP',quality=60,method=6)
           print(im.size, os.path.getsize('cover.webp'))
