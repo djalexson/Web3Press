@@ -27,3 +27,4 @@ jobs:
           test "$(sha256sum verify.webp | awk '{print $1}')" = "$SHA"
           identify verify.webp
           echo "sha256=$SHA size=$(wc -c < cover.webp | tr -d ' ') key=$KEY"
+          echo 'Upload verification complete.'
