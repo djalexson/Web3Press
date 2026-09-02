@@ -1,0 +1,29 @@
+name: Temp upload A.S Groups Cloudflare D1 cover
+on:
+  push:
+    paths:
+      - '.github/workflows/temp-upload-cloudflare-d1-cover.yml'
+permissions:
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare and upload cover
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          SRC='https://images.unsplash.com/photo-1763568258320-c954a19683e3?auto=format&fit=crop&fm=jpg&q=88&w=2400'
+          KEY='2026/09/cloudflare-workers-d1-arhitektura-api-integracii.webp'
+          curl -L --fail --silent --show-error "$SRC" -o source.jpg
+          convert source.jpg -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 -strip -quality 76 cover.webp
+          SIZE=$(wc -c < cover.webp | tr -d ' ')
+          if [ "$SIZE" -gt 256000 ]; then convert cover.webp -quality 60 cover.webp; fi
+          SHA=$(sha256sum cover.webp | awk '{print $1}')
+          curl --fail --silent --show-error -X PUT "https://upload.likelyin.ru/v1/upload/$KEY" -H "Authorization: Bearer $R2_UPLOAD_API_TOKEN" -H 'Content-Type: image/webp' --data-binary @cover.webp >/tmp/upload.json
+          curl -L --fail --silent --show-error "https://img.likelyin.ru/$KEY?v=20260902-0816" -o verify.webp
+          test "$(sha256sum verify.webp | awk '{print $1}')" = "$SHA"
+          identify verify.webp
+          echo "sha256=$SHA size=$(wc -c < cover.webp | tr -d ' ') key=$KEY"
