@@ -1,0 +1,51 @@
+name: Upload Killa Kika article cover to R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-killa-kika-cover-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    env:
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      SOURCE_URL: https://drive.usercontent.google.com/download?id=1d95xYtSRMElF6fb9-6FRxss8wm-QvnBF&export=download&confirm=t
+      OBJECT_KEY: 2026/09/killa-woocommerce-kika-cover.png
+      PUBLIC_URL: https://img.likelyin.ru/2026/09/killa-woocommerce-kika-cover.png
+      EXPECTED_SHA256: a9bf03ff5f6bede07c07ab32640e7f96425c9bbf82c1121c499ab68a2ca07a73
+      EXPECTED_SIZE: '1693043'
+    steps:
+      - name: Download exact PNG from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 2 -o /tmp/killa-cover.png "$SOURCE_URL"
+          test "$(wc -c < /tmp/killa-cover.png | tr -d ' ')" = "$EXPECTED_SIZE"
+          test "$(sha256sum /tmp/killa-cover.png | awk '{print $1}')" = "$EXPECTED_SHA256"
+          test "$(file -b --mime-type /tmp/killa-cover.png)" = 'image/png'
+
+      - name: Upload exact PNG to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          curl --fail-with-body \
+            -X PUT \
+            "https://upload.likelyin.ru/v1/upload/${OBJECT_KEY}" \
+            -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+            -H 'Content-Type: image/png' \
+            -H 'X-ASG-Overwrite: true' \
+            --data-binary '@/tmp/killa-cover.png'
+
+      - name: Verify public R2 object byte for byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/r2-killa-cover.png "$PUBLIC_URL"
+          test "$(wc -c < /tmp/r2-killa-cover.png | tr -d ' ')" = "$EXPECTED_SIZE"
+          test "$(sha256sum /tmp/r2-killa-cover.png | awk '{print $1}')" = "$EXPECTED_SHA256"
+          cmp /tmp/killa-cover.png /tmp/r2-killa-cover.png
