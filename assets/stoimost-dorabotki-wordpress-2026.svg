@@ -1,47 +1,79 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaf2ff"/><stop offset=".55" stop-color="#f8fafc"/><stop offset="1" stop-color="#dbeafe"/></linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
-    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset=".5" stop-color="#f59e0b"/><stop offset="1" stop-color="#b45309"/></linearGradient>
-    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#0f172a" flood-opacity=".22"/></filter>
-    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
-  </defs>
-  <rect width="1536" height="1024" fill="url(#bg)"/>
-  <circle cx="1280" cy="180" r="250" fill="#2563eb" opacity=".10" filter="url(#soft)"/>
-  <circle cx="250" cy="820" r="300" fill="#7c3aed" opacity=".09" filter="url(#soft)"/>
-  <rect x="165" y="175" width="905" height="600" rx="36" fill="#0f172a" stroke="#334155" stroke-width="4" filter="url(#shadow)"/>
-  <rect x="205" y="215" width="825" height="480" rx="24" fill="url(#screen)"/>
-  <rect x="245" y="255" width="310" height="58" rx="15" fill="#1e3a8a"/>
-  <circle cx="278" cy="284" r="11" fill="#60a5fa"/><rect x="305" y="273" width="205" height="22" rx="11" fill="#93c5fd" opacity=".85"/>
-  <rect x="245" y="350" width="350" height="280" rx="22" fill="#f8fafc"/>
-  <circle cx="420" cy="475" r="96" fill="url(#blue)"/>
-  <text x="420" y="508" text-anchor="middle" font-family="Georgia,serif" font-size="110" font-weight="700" fill="#fff">W</text>
-  <rect x="635" y="350" width="350" height="280" rx="22" fill="#111827" stroke="#475569"/>
-  <rect x="675" y="390" width="190" height="18" rx="9" fill="#60a5fa"/>
-  <rect x="675" y="430" width="255" height="14" rx="7" fill="#334155"/>
-  <rect x="675" y="463" width="225" height="14" rx="7" fill="#334155"/>
-  <rect x="675" y="516" width="90" height="64" rx="12" fill="#1d4ed8"/>
-  <rect x="780" y="516" width="90" height="64" rx="12" fill="#2563eb"/>
-  <rect x="885" y="516" width="60" height="64" rx="12" fill="#3b82f6"/>
-  <path d="M250 775H1015L1095 870H170Z" fill="#cbd5e1" stroke="#94a3b8" stroke-width="4" filter="url(#shadow)"/>
-  <rect x="1120" y="250" width="250" height="310" rx="38" fill="#111827" filter="url(#shadow)"/>
-  <rect x="1155" y="292" width="180" height="64" rx="14" fill="#e2e8f0"/>
-  <g fill="#334155">
-    <rect x="1155" y="390" width="48" height="48" rx="10"/><rect x="1221" y="390" width="48" height="48" rx="10"/><rect x="1287" y="390" width="48" height="48" rx="10"/>
-    <rect x="1155" y="456" width="48" height="48" rx="10"/><rect x="1221" y="456" width="48" height="48" rx="10"/><rect x="1287" y="456" width="48" height="48" rx="10"/>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fbff"/><stop offset="0.55" stop-color="#eef5ff"/><stop offset="1" stop-color="#dfeaff"/></linearGradient>
+  <radialGradient id="glow" cx="78%" cy="30%" r="60%"><stop offset="0" stop-color="#cfe1ff" stop-opacity=".9"/><stop offset="1" stop-color="#dbeafe" stop-opacity="0"/></radialGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+  <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#263243"/><stop offset="1" stop-color="#111827"/></linearGradient>
+  <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f8fb"/><stop offset=".55" stop-color="#dfe6ef"/><stop offset="1" stop-color="#b9c6d5"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#64748b" flood-opacity=".28"/></filter>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="38"/></filter>
+</defs>
+<rect width="1536" height="1024" fill="url(#bg)"/>
+<rect width="1536" height="1024" fill="url(#glow)"/>
+<circle cx="1290" cy="115" r="165" fill="#bfdbfe" opacity=".5"/>
+<circle cx="40" cy="960" r="190" fill="#dbeafe" opacity=".8"/>
+<circle cx="545" cy="845" r="30" fill="#cfe0ff" opacity=".75"/>
+<circle cx="575" cy="560" r="28" fill="#cfe0ff" opacity=".72"/>
+<ellipse cx="1120" cy="865" rx="330" ry="48" fill="#94a3b8" opacity=".15" filter="url(#soft)"/>
+
+<g font-family="Inter,Segoe UI,Arial,sans-serif">
+  <text x="84" y="250" font-size="39" font-weight="800" fill="#2f6fe4">WordPress • 2026</text>
+  <text x="84" y="365" font-size="72" font-weight="900" fill="#17243a">Сколько стоит</text>
+  <text x="84" y="458" font-size="72" font-weight="900" fill="#17243a">доработка сайта</text>
+  <text x="84" y="551" font-size="72" font-weight="900" fill="#17243a">на WordPress?</text>
+  <text x="84" y="620" font-size="42" font-weight="650" fill="#7183a2">цены на реальные задачи</text>
+  <g transform="translate(84 680)">
+    <rect width="180" height="70" rx="35" fill="#fff" stroke="#d8e6fb" stroke-width="2"/>
+    <text x="90" y="46" text-anchor="middle" font-size="27" font-weight="700" fill="#16233a">Elementor</text>
   </g>
-  <rect x="1155" y="522" width="180" height="18" rx="9" fill="#2563eb"/>
-  <g filter="url(#shadow)">
-    <ellipse cx="1170" cy="755" rx="110" ry="28" fill="#92400e" opacity=".28"/>
-    <g fill="url(#coin)" stroke="#d97706" stroke-width="3">
-      <ellipse cx="1150" cy="720" rx="95" ry="26"/><rect x="1055" y="650" width="190" height="70" fill="#f59e0b"/><ellipse cx="1150" cy="650" rx="95" ry="26"/>
-      <ellipse cx="1290" cy="790" rx="80" ry="23"/><rect x="1210" y="735" width="160" height="55" fill="#f59e0b"/><ellipse cx="1290" cy="735" rx="80" ry="23"/>
-      <ellipse cx="1365" cy="675" rx="64" ry="20"/><rect x="1301" y="635" width="128" height="40" fill="#f59e0b"/><ellipse cx="1365" cy="635" rx="64" ry="20"/>
-    </g>
+  <g transform="translate(286 680)">
+    <rect width="228" height="70" rx="35" fill="#fff" stroke="#d8e6fb" stroke-width="2"/>
+    <text x="114" y="46" text-anchor="middle" font-size="27" font-weight="700" fill="#16233a">WooCommerce</text>
   </g>
-  <rect x="1030" y="575" width="240" height="120" rx="24" fill="#ffffff" stroke="#bfdbfe" stroke-width="3" transform="rotate(-7 1030 575)" filter="url(#shadow)"/>
-  <text x="1142" y="647" text-anchor="middle" font-family="Arial,sans-serif" font-size="70" font-weight="700" fill="#1d4ed8">₽</text>
-  <path d="M735 760c120-80 235-70 330-20" fill="none" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-dasharray="10 20"/>
-  <circle cx="1065" cy="740" r="16" fill="#2563eb"/>
+  <g transform="translate(535 680)">
+    <rect width="116" height="70" rx="35" fill="#fff" stroke="#d8e6fb" stroke-width="2"/>
+    <text x="58" y="46" text-anchor="middle" font-size="27" font-weight="700" fill="#16233a">API</text>
+  </g>
+</g>
+
+<!-- monitor -->
+<g filter="url(#shadow)">
+  <rect x="735" y="128" width="720" height="638" rx="28" fill="url(#frame)"/>
+  <rect x="755" y="148" width="680" height="576" rx="18" fill="#0f172a"/>
+  <rect x="820" y="174" width="596" height="526" rx="18" fill="#fff"/>
+</g>
+<g font-family="Inter,Segoe UI,Arial,sans-serif">
+  <!-- sidebar -->
+  <rect x="755" y="148" width="170" height="576" rx="18" fill="#152139"/>
+  <circle cx="825" cy="215" r="31" fill="#fff"/><text x="806" y="229" font-family="Georgia,serif" font-size="40" font-weight="700" fill="#253858">W</text>
+  <rect x="770" y="290" width="140" height="50" rx="8" fill="#2f74e8"/>
+  <text x="795" y="322" font-size="20" fill="#fff">Проекты</text>
+  <text x="795" y="380" font-size="18" fill="#b9c8df">Страницы</text>
+  <text x="795" y="430" font-size="18" fill="#b9c8df">Плагины</text>
+  <text x="795" y="480" font-size="18" fill="#b9c8df">Внешний вид</text>
+  <text x="795" y="530" font-size="18" fill="#b9c8df">Пользователи</text>
+  <text x="795" y="580" font-size="18" fill="#b9c8df">Настройки</text>
+
+  <!-- pricing panel -->
+  <text x="955" y="247" font-size="30" font-weight="850" fill="#17243a">Оценка доработки</text>
+  <text x="955" y="278" font-size="17" fill="#8a9ab4">Примеры реальных задач и ориентировочные цены</text>
+  <rect x="947" y="315" width="440" height="48" rx="12" fill="#f4f7fc"/>
+  <text x="965" y="346" font-size="18" font-weight="700" fill="#6b7d9a">Задача</text>
+  <text x="1328" y="346" text-anchor="end" font-size="18" font-weight="700" fill="#6b7d9a">Стоимость</text>
+
+  <g font-size="17" fill="#243550">
+    <text x="965" y="405">Доработка страницы (Elementor)</text><text x="1365" y="405" text-anchor="end" font-weight="800" fill="#2772e9">от 3 000 ₽</text>
+    <line x1="957" y1="425" x2="1370" y2="425" stroke="#e8eef7"/>
+    <text x="965" y="463">Интеграция с API</text><text x="1365" y="463" text-anchor="end" font-weight="800" fill="#2772e9">от 7 000 ₽</text>
+    <line x1="957" y1="483" x2="1370" y2="483" stroke="#e8eef7"/>
+    <text x="965" y="521">Доработка WooCommerce</text><text x="1365" y="521" text-anchor="end" font-weight="800" fill="#2772e9">от 5 000 ₽</text>
+    <line x1="957" y1="541" x2="1370" y2="541" stroke="#e8eef7"/>
+    <text x="965" y="579">Оптимизация скорости сайта</text><text x="1365" y="579" text-anchor="end" font-weight="800" fill="#2772e9">от 4 000 ₽</text>
+  </g>
+  <rect x="947" y="615" width="440" height="62" rx="14" fill="#edf5ff"/>
+  <circle cx="975" cy="646" r="14" fill="#2f74e8"/><text x="971" y="652" font-size="18" font-weight="800" fill="#fff">i</text>
+  <text x="1000" y="652" font-size="15" fill="#2c66cc">Итоговая стоимость зависит от сложности и объёма работ</text>
+</g>
+<!-- stand -->
+<path d="M1040 766h116l34 95h-184z" fill="url(#silver)"/><rect x="930" y="852" width="340" height="32" rx="16" fill="url(#silver)"/>
 </svg>
