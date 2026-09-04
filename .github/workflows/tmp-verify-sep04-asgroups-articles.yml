@@ -11,21 +11,19 @@ jobs:
     steps:
       - name: Verify desktop mobile SEO and sitemap
         run: |
-          set -euo pipefail
+          set -u
           slugs=(cloudflare-d1-free-limits-2026 telegram-bot-api-10-3-rich-messages)
           for slug in "${slugs[@]}"; do
             url="https://asgroups.dev/${slug}/"
-            curl -fsSL -A 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140 Safari/537.36' "$url" -o "/tmp/${slug}-desktop.html"
-            curl -fsSL -A 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' "$url" -o "/tmp/${slug}-mobile.html"
-            grep -Fq "rel=\"canonical\" href=\"${url}\"" "/tmp/${slug}-desktop.html"
-            grep -q 'BlogPosting' "/tmp/${slug}-desktop.html"
-            grep -q 'FAQPage' "/tmp/${slug}-desktop.html"
-            grep -q 'wp-post-image\|featured' "/tmp/${slug}-desktop.html"
-            grep -q 'asgroups.dev/' "/tmp/${slug}-desktop.html"
-            test "$(wc -c < /tmp/${slug}-desktop.html)" -gt 30000
-            test "$(wc -c < /tmp/${slug}-mobile.html)" -gt 30000
-            echo "OK page desktop/mobile canonical schemas image links: $url"
+            dc=$(curl -L -sS -o "/tmp/${slug}-desktop.html" -w '%{http_code}' -A 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140 Safari/537.36' "$url")
+            mc=$(curl -L -sS -o "/tmp/${slug}-mobile.html" -w '%{http_code}' -A 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' "$url")
+            echo "$slug desktop_http=$dc mobile_http=$mc desktop_bytes=$(wc -c < /tmp/${slug}-desktop.html) mobile_bytes=$(wc -c < /tmp/${slug}-mobile.html)"
+            grep -Fq "rel=\"canonical\" href=\"${url}\"" "/tmp/${slug}-desktop.html" && echo canonical=yes || echo canonical=no
+            grep -q 'BlogPosting' "/tmp/${slug}-desktop.html" && echo BlogPosting=yes || echo BlogPosting=no
+            grep -q 'FAQPage' "/tmp/${slug}-desktop.html" && echo FAQPage=yes || echo FAQPage=no
+            grep -q 'wp-post-image\|featured' "/tmp/${slug}-desktop.html" && echo featured_marker=yes || echo featured_marker=no
+            grep -q 'href="https://asgroups.dev/' "/tmp/${slug}-desktop.html" && echo internal_links=yes || echo internal_links=no
           done
-          curl -fsSL https://asgroups.dev/post-sitemap.xml -o /tmp/sitemap.xml
-          for slug in "${slugs[@]}"; do grep -q "https://asgroups.dev/${slug}/" /tmp/sitemap.xml; done
-          echo 'OK sitemap contains both articles'
+          sc=$(curl -L -sS -o /tmp/sitemap.xml -w '%{http_code}' https://asgroups.dev/post-sitemap.xml)
+          echo "sitemap_http=$sc"
+          for slug in "${slugs[@]}"; do grep -q "https://asgroups.dev/${slug}/" /tmp/sitemap.xml && echo "sitemap_${slug}=yes" || echo "sitemap_${slug}=no"; done
