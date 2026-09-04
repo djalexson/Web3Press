@@ -14,7 +14,7 @@ jobs:
       EXPECTED_IMAGE: https://asgroups.dev/wp-content/uploads/2026/09/woocommerce-hpos-perehod-proverka-sovmestimosti.webp
       EXPECTED_SHA: eb57a240665e059c0698ca178cd60889b82d243df198bd0b72d4b54a813df577
     steps:
-      - name: HTTP HTML schema sitemap and links
+      - name: HTTP HTML schema links image and sitemap
         run: |
           set -euo pipefail
           code=$(curl -L --silent --show-error -o page.html -w '%{http_code}' "$ARTICLE_URL")
@@ -41,19 +41,6 @@ jobs:
             test "$c" = 200
             echo "INTERNAL_LINK=$u HTTP=$c"
           done
-          curl -L --fail --silent --show-error https://asgroups.dev/wp-sitemap.xml -o sitemap-index.xml
-          if grep -Fq "$ARTICLE_URL" sitemap-index.xml; then
-            echo 'SITEMAP=OK index'
-          else
-            grep -oE 'https://asgroups\.dev/[^<]+\.xml' sitemap-index.xml > sitemap-urls.txt || true
-            found=0
-            while IFS= read -r sm; do
-              [ -n "$sm" ] || continue
-              curl -L --fail --silent --show-error "$sm" -o child.xml || continue
-              if grep -Fq "$ARTICLE_URL" child.xml; then found=1; echo "SITEMAP=OK $sm"; break; fi
-            done < sitemap-urls.txt
-            test "$found" = 1
-          fi
           curl -L --fail --silent --show-error "$EXPECTED_IMAGE" -o wp.webp
           wp_sha=$(sha256sum wp.webp | awk '{print $1}')
           wp_mime=$(file -b --mime-type wp.webp)
@@ -61,6 +48,37 @@ jobs:
           test "$wp_sha" = "$EXPECTED_SHA"
           test "$wp_mime" = image/webp
           echo "WP_IMAGE_SHA=$wp_sha SIZE=$wp_size MIME=$wp_mime BYTE_FOR_BYTE=OK"
+          python - <<'PY'
+          import urllib.request, re, sys
+          article='https://asgroups.dev/woocommerce-hpos-perehod-proverka-sovmestimosti/'
+          seeds=[]
+          try:
+              robots=urllib.request.urlopen('https://asgroups.dev/robots.txt',timeout=20).read().decode('utf-8','ignore')
+              print('ROBOTS_SITEMAPS=', re.findall(r'(?im)^Sitemap:\s*(\S+)', robots))
+              seeds += re.findall(r'(?im)^Sitemap:\s*(\S+)', robots)
+          except Exception as e: print('ROBOTS_ERROR',e)
+          seeds += ['https://asgroups.dev/sitemaps.xml','https://asgroups.dev/sitemap.xml','https://asgroups.dev/wp-sitemap.xml']
+          seen=set(); queue=list(dict.fromkeys(seeds)); found=None
+          for _ in range(60):
+              if not queue: break
+              u=queue.pop(0)
+              if u in seen: continue
+              seen.add(u)
+              try:
+                  data=urllib.request.urlopen(u,timeout=20).read().decode('utf-8','ignore')
+                  print('SITEMAP_FETCH',u,'bytes',len(data))
+              except Exception as e:
+                  print('SITEMAP_SKIP',u,type(e).__name__)
+                  continue
+              if article in data:
+                  found=u; break
+              for x in re.findall(r'<loc>(https://asgroups\.dev/[^<]+\.xml)</loc>',data):
+                  if x not in seen: queue.append(x)
+          if not found:
+              print('SITEMAP=NOT_FOUND')
+              sys.exit(2)
+          print('SITEMAP=OK',found)
+          PY
       - name: Browser desktop and mobile
         run: |
           set -euo pipefail
