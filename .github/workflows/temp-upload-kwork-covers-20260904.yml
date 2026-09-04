@@ -11,6 +11,7 @@ jobs:
       - name: Render covers
         run: |
           set -euo pipefail
+          python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from PIL import Image,ImageDraw,ImageFont
           W,H=1536,1024
@@ -44,7 +45,7 @@ jobs:
           for spec in 'kwork-ili-upwork-2026.webp:2026/09/kwork-ili-upwork-2026.webp' 'kwork-ili-freelancer-2026.webp:2026/09/kwork-ili-freelancer-2026.webp'; do
             f=${spec%%:*}; k=${spec#*:}; src=/tmp/$f
             curl --fail --silent --show-error -X PUT "https://upload.likelyin.ru/v1/upload/$k" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: image/webp' --data-binary "@$src"
-            curl --fail --silent --show-error -L "https://img.likelyin.ru/$k?v=20260904-2000" -o "/tmp/verify-$f"
+            curl --fail --silent --show-error -L "https://img.likelyin.ru/$k?v=20260904-2010" -o "/tmp/verify-$f"
             s1=$(sha256sum "$src"|awk '{print $1}'); s2=$(sha256sum "/tmp/verify-$f"|awk '{print $1}'); test "$s1" = "$s2"
             echo "VERIFIED $k SHA256=$s1 SIZE=$(wc -c < "$src")"
           done
