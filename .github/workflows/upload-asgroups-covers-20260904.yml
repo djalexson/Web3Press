@@ -30,15 +30,17 @@ jobs:
         run: |
           set -euo pipefail
           fetch_blob() {
-            local sha="$1" out="$2"
+            local sha="$1" out="$2" json="$3"
             curl --fail-with-body --silent --show-error \
               -H "Authorization: Bearer ${GH_TOKEN}" \
               -H 'Accept: application/vnd.github+json' \
-              "https://api.github.com/repos/djalexson/Web3Press/git/blobs/${sha}" \
-              | jq -r '.content' | tr -d '\n' | base64 -d > "$out"
+              "https://api.github.com/repos/djalexson/Web3Press/git/blobs/${sha}" -o "$json"
+            jq -e '.encoding == "base64" and (.content | type == "string")' "$json" >/dev/null
+            jq -r '.content' "$json" | tr -d '\n\r' | base64 --decode > "$out"
+            echo "RESTORED $(basename "$out") size=$(wc -c < "$out") sha256=$(sha256sum "$out" | cut -d' ' -f1)"
           }
-          fetch_blob "$WOO_BLOB" /tmp/woo.webp
-          fetch_blob "$WP_BLOB" /tmp/wp.webp
+          fetch_blob "$WOO_BLOB" /tmp/woo.webp /tmp/woo.json
+          fetch_blob "$WP_BLOB" /tmp/wp.webp /tmp/wp.json
           test "$(wc -c < /tmp/woo.webp)" -eq "$WOO_SIZE"
           test "$(wc -c < /tmp/wp.webp)" -eq "$WP_SIZE"
           echo "$WOO_SHA256  /tmp/woo.webp" | sha256sum -c -
