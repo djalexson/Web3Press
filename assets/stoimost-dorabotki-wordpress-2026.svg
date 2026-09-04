@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaf2ff"/><stop offset=".55" stop-color="#f8fafc"/><stop offset="1" stop-color="#dbeafe"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset=".5" stop-color="#f59e0b"/><stop offset="1" stop-color="#b45309"/></linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#0f172a" flood-opacity=".22"/></filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
+  </defs>
+  <rect width="1536" height="1024" fill="url(#bg)"/>
+  <circle cx="1280" cy="180" r="250" fill="#2563eb" opacity=".10" filter="url(#soft)"/>
+  <circle cx="250" cy="820" r="300" fill="#7c3aed" opacity=".09" filter="url(#soft)"/>
+  <rect x="165" y="175" width="905" height="600" rx="36" fill="#0f172a" stroke="#334155" stroke-width="4" filter="url(#shadow)"/>
+  <rect x="205" y="215" width="825" height="480" rx="24" fill="url(#screen)"/>
+  <rect x="245" y="255" width="310" height="58" rx="15" fill="#1e3a8a"/>
+  <circle cx="278" cy="284" r="11" fill="#60a5fa"/><rect x="305" y="273" width="205" height="22" rx="11" fill="#93c5fd" opacity=".85"/>
+  <rect x="245" y="350" width="350" height="280" rx="22" fill="#f8fafc"/>
+  <circle cx="420" cy="475" r="96" fill="url(#blue)"/>
+  <text x="420" y="508" text-anchor="middle" font-family="Georgia,serif" font-size="110" font-weight="700" fill="#fff">W</text>
+  <rect x="635" y="350" width="350" height="280" rx="22" fill="#111827" stroke="#475569"/>
+  <rect x="675" y="390" width="190" height="18" rx="9" fill="#60a5fa"/>
+  <rect x="675" y="430" width="255" height="14" rx="7" fill="#334155"/>
+  <rect x="675" y="463" width="225" height="14" rx="7" fill="#334155"/>
+  <rect x="675" y="516" width="90" height="64" rx="12" fill="#1d4ed8"/>
+  <rect x="780" y="516" width="90" height="64" rx="12" fill="#2563eb"/>
+  <rect x="885" y="516" width="60" height="64" rx="12" fill="#3b82f6"/>
+  <path d="M250 775H1015L1095 870H170Z" fill="#cbd5e1" stroke="#94a3b8" stroke-width="4" filter="url(#shadow)"/>
+  <rect x="1120" y="250" width="250" height="310" rx="38" fill="#111827" filter="url(#shadow)"/>
+  <rect x="1155" y="292" width="180" height="64" rx="14" fill="#e2e8f0"/>
+  <g fill="#334155">
+    <rect x="1155" y="390" width="48" height="48" rx="10"/><rect x="1221" y="390" width="48" height="48" rx="10"/><rect x="1287" y="390" width="48" height="48" rx="10"/>
+    <rect x="1155" y="456" width="48" height="48" rx="10"/><rect x="1221" y="456" width="48" height="48" rx="10"/><rect x="1287" y="456" width="48" height="48" rx="10"/>
+  </g>
+  <rect x="1155" y="522" width="180" height="18" rx="9" fill="#2563eb"/>
+  <g filter="url(#shadow)">
+    <ellipse cx="1170" cy="755" rx="110" ry="28" fill="#92400e" opacity=".28"/>
+    <g fill="url(#coin)" stroke="#d97706" stroke-width="3">
+      <ellipse cx="1150" cy="720" rx="95" ry="26"/><rect x="1055" y="650" width="190" height="70" fill="#f59e0b"/><ellipse cx="1150" cy="650" rx="95" ry="26"/>
+      <ellipse cx="1290" cy="790" rx="80" ry="23"/><rect x="1210" y="735" width="160" height="55" fill="#f59e0b"/><ellipse cx="1290" cy="735" rx="80" ry="23"/>
+      <ellipse cx="1365" cy="675" rx="64" ry="20"/><rect x="1301" y="635" width="128" height="40" fill="#f59e0b"/><ellipse cx="1365" cy="635" rx="64" ry="20"/>
+    </g>
+  </g>
+  <rect x="1030" y="575" width="240" height="120" rx="24" fill="#ffffff" stroke="#bfdbfe" stroke-width="3" transform="rotate(-7 1030 575)" filter="url(#shadow)"/>
+  <text x="1142" y="647" text-anchor="middle" font-family="Arial,sans-serif" font-size="70" font-weight="700" fill="#1d4ed8">₽</text>
+  <path d="M735 760c120-80 235-70 330-20" fill="none" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-dasharray="10 20"/>
+  <circle cx="1065" cy="740" r="16" fill="#2563eb"/>
+</svg>
