@@ -1,0 +1,115 @@
+name: Temporary verify A.S Groups HPOS live page
+on:
+  push:
+    paths:
+      - '.github/workflows/tmp-verify-asgroups-hpos-live.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      ARTICLE_URL: https://asgroups.dev/woocommerce-hpos-perehod-proverka-sovmestimosti/
+      EXPECTED_TITLE: 'WooCommerce HPOS: как перейти на новые таблицы заказов без риска'
+      EXPECTED_IMAGE: https://asgroups.dev/wp-content/uploads/2026/09/woocommerce-hpos-perehod-proverka-sovmestimosti.webp
+      EXPECTED_SHA: eb57a240665e059c0698ca178cd60889b82d243df198bd0b72d4b54a813df577
+    steps:
+      - name: HTTP HTML schema sitemap and links
+        run: |
+          set -euo pipefail
+          code=$(curl -L --silent --show-error -o page.html -w '%{http_code}' "$ARTICLE_URL")
+          test "$code" = 200
+          echo "ARTICLE_HTTP=$code"
+          grep -Fq "<h1" page.html
+          grep -Fq "$EXPECTED_TITLE" page.html
+          echo 'H1_TITLE=OK'
+          canonical=$(grep -oE '<link[^>]+rel=["'"']canonical["'"'][^>]+>' page.html | head -1 || true)
+          echo "$canonical"
+          echo "$canonical" | grep -Fq "$ARTICLE_URL"
+          echo 'CANONICAL=OK'
+          grep -Fq 'BlogPosting' page.html && echo 'BLOGPOSTING=OK'
+          grep -Fq 'FAQPage' page.html && echo 'FAQPAGE=OK'
+          grep -Fq 'article-flow' page.html && echo 'ARTICLE_FLOW_HTML=OK'
+          grep -Fq 'article-checklist' page.html && echo 'CHECKLIST_HTML=OK'
+          grep -Fq 'article-faq' page.html && echo 'FAQ_HTML=OK'
+          grep -Fq 'Официальные источники' page.html && echo 'SOURCES_BLOCK=OK'
+          for u in \
+            https://asgroups.dev/woocommerce-razrabotka/ \
+            https://asgroups.dev/dorabotka-wordpress/ \
+            https://asgroups.dev/crm-integracii-s-sajtom/; do
+            c=$(curl -L --silent --show-error -o /dev/null -w '%{http_code}' "$u")
+            test "$c" = 200
+            echo "INTERNAL_LINK=$u HTTP=$c"
+          done
+          curl -L --fail --silent --show-error https://asgroups.dev/wp-sitemap.xml -o sitemap-index.xml
+          if grep -Fq "$ARTICLE_URL" sitemap-index.xml; then
+            echo 'SITEMAP=OK index'
+          else
+            grep -oE 'https://asgroups\.dev/[^<]+\.xml' sitemap-index.xml > sitemap-urls.txt || true
+            found=0
+            while IFS= read -r sm; do
+              [ -n "$sm" ] || continue
+              curl -L --fail --silent --show-error "$sm" -o child.xml || continue
+              if grep -Fq "$ARTICLE_URL" child.xml; then found=1; echo "SITEMAP=OK $sm"; break; fi
+            done < sitemap-urls.txt
+            test "$found" = 1
+          fi
+          curl -L --fail --silent --show-error "$EXPECTED_IMAGE" -o wp.webp
+          wp_sha=$(sha256sum wp.webp | awk '{print $1}')
+          wp_mime=$(file -b --mime-type wp.webp)
+          wp_size=$(wc -c < wp.webp | tr -d ' ')
+          test "$wp_sha" = "$EXPECTED_SHA"
+          test "$wp_mime" = image/webp
+          echo "WP_IMAGE_SHA=$wp_sha SIZE=$wp_size MIME=$wp_mime BYTE_FOR_BYTE=OK"
+      - name: Browser desktop and mobile
+        run: |
+          set -euo pipefail
+          mkdir browser-check && cd browser-check
+          npm init -y >/dev/null 2>&1
+          npm install playwright@latest >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+          cat > check.js <<'JS'
+          const { chromium } = require('playwright');
+          const url = process.env.ARTICLE_URL;
+          async function run(name, viewport) {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewportSize: viewport});
+            const resp = await page.goto(url, {waitUntil:'networkidle', timeout:90000});
+            if (!resp || resp.status() !== 200) throw new Error(name+': HTTP '+(resp&&resp.status()));
+            const result = await page.evaluate(() => {
+              const h1 = document.querySelector('h1')?.textContent?.trim() || '';
+              const canonical = document.querySelector('link[rel="canonical"]')?.href || '';
+              const flow = !!document.querySelector('.article-flow');
+              const checklist = !!document.querySelector('.article-checklist');
+              const faq = document.querySelector('.article-faq');
+              const buttons = faq ? [...faq.querySelectorAll('button')] : [];
+              const pageOverflow = document.documentElement.scrollWidth > document.documentElement.clientWidth + 2;
+              const imgs = [...document.images].filter(i => i.src.includes('woocommerce-hpos-perehod-proverka-sovmestimosti'));
+              const imgVisible = imgs.some(i => i.complete && i.naturalWidth > 0 && i.getBoundingClientRect().height > 0);
+              const source = document.body.innerText.includes('Официальные источники');
+              const checklistLi = document.querySelector('.article-checklist li');
+              const before = checklistLi ? getComputedStyle(checklistLi,'::before').content : '';
+              return {h1,canonical,flow,checklist,faq:!!faq,buttons:buttons.length,pageOverflow,imgVisible,source,before};
+            });
+            console.log(name, JSON.stringify(result));
+            if (!result.h1.includes('WooCommerce HPOS')) throw new Error(name+': H1');
+            if (result.canonical !== url) throw new Error(name+': canonical');
+            if (!result.flow || !result.checklist || !result.faq || !result.source || !result.imgVisible) throw new Error(name+': required blocks/image');
+            if (result.pageOverflow) throw new Error(name+': horizontal page overflow');
+            let accordion = 'NOT_VERIFIED';
+            const btn = page.locator('.article-faq button').first();
+            if (await btn.count()) {
+              const before = await btn.getAttribute('aria-expanded');
+              await btn.click();
+              await page.waitForTimeout(250);
+              const after = await btn.getAttribute('aria-expanded');
+              if (before !== after || after === 'true') accordion = 'OK';
+              else throw new Error(name+': FAQ button did not toggle');
+            }
+            console.log(name+'_FAQ_ACCORDION='+accordion);
+            console.log(name+'_CHECKLIST_MARKER='+result.before);
+            await browser.close();
+          }
+          (async()=>{await run('DESKTOP',{width:1440,height:1000}); await run('MOBILE',{width:390,height:844});})().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node check.js
