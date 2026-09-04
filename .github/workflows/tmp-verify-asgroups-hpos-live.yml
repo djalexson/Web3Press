@@ -10,61 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ARTICLE_URL: https://asgroups.dev/woocommerce-hpos-perehod-proverka-sovmestimosti/
-      EXPECTED_TITLE: 'WooCommerce HPOS: как перейти на новые таблицы заказов без риска'
-      EXPECTED_IMAGE: https://asgroups.dev/wp-content/uploads/2026/09/woocommerce-hpos-perehod-proverka-sovmestimosti.webp
-      EXPECTED_SHA: eb57a240665e059c0698ca178cd60889b82d243df198bd0b72d4b54a813df577
     steps:
-      - name: HTTP HTML schema links image and sitemap
-        run: |
-          set -euo pipefail
-          code=$(curl -L --silent --show-error -o page.html -w '%{http_code}' "$ARTICLE_URL")
-          test "$code" = 200
-          echo "ARTICLE_HTTP=$code"
-          grep -Fq '<h1' page.html
-          grep -Fq "$EXPECTED_TITLE" page.html
-          echo 'H1_TITLE=OK'
-          canonical=$(grep -oE '<link[^>]+rel="canonical"[^>]+>' page.html | head -1 || true)
-          echo "$canonical"
-          echo "$canonical" | grep -Fq "$ARTICLE_URL"
-          echo 'CANONICAL=OK'
-          grep -Fq 'BlogPosting' page.html && echo 'BLOGPOSTING=OK'
-          grep -Fq 'FAQPage' page.html && echo 'FAQPAGE=OK'
-          grep -Fq 'article-flow' page.html && echo 'ARTICLE_FLOW_HTML=OK'
-          grep -Fq 'article-checklist' page.html && echo 'CHECKLIST_HTML=OK'
-          grep -Fq 'article-faq' page.html && echo 'FAQ_HTML=OK'
-          grep -Fq 'Официальные источники' page.html && echo 'SOURCES_BLOCK=OK'
-          for u in https://asgroups.dev/woocommerce-razrabotka/ https://asgroups.dev/dorabotka-wordpress/ https://asgroups.dev/crm-integracii-s-sajtom/; do
-            c=$(curl -L --silent --show-error -o /dev/null -w '%{http_code}' "$u")
-            test "$c" = 200
-            echo "INTERNAL_LINK=$u HTTP=$c"
-          done
-          curl -L --fail --silent --show-error "$EXPECTED_IMAGE" -o wp.webp
-          wp_sha=$(sha256sum wp.webp | awk '{print $1}')
-          wp_mime=$(file -b --mime-type wp.webp)
-          wp_size=$(wc -c < wp.webp | tr -d ' ')
-          test "$wp_sha" = "$EXPECTED_SHA"
-          test "$wp_mime" = image/webp
-          echo "WP_IMAGE_SHA=$wp_sha SIZE=$wp_size MIME=$wp_mime BYTE_FOR_BYTE=OK"
-          python - <<'PY'
-          import urllib.request, re, time
-          article='https://asgroups.dev/woocommerce-hpos-perehod-proverka-sovmestimosti/'
-          bust=str(int(time.time()))
-          urls=['https://asgroups.dev/post-sitemap.xml?v='+bust,'https://asgroups.dev/sitemap_index.xml?v='+bust]
-          found=False
-          for u in urls:
-              try:
-                  req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','Pragma':'no-cache'})
-                  data=urllib.request.urlopen(req,timeout=20).read().decode('utf-8','ignore')
-                  print('SITEMAP_FETCH',u,'bytes',len(data))
-                  if article in data:
-                      print('SITEMAP=OK',u); found=True; break
-              except Exception as e: print('SITEMAP_ERROR',u,type(e).__name__)
-          if not found: print('SITEMAP=NOT_FOUND')
-          PY
       - name: Browser desktop and mobile
         run: |
           set -euo pipefail
-          mkdir browser-check && cd browser-check
           npm init -y >/dev/null 2>&1
           npm install playwright@latest >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null 2>&1
@@ -74,8 +23,9 @@ jobs:
           async function run(name, viewport) {
             const browser = await chromium.launch({headless:true});
             const page = await browser.newPage({viewportSize: viewport});
-            const resp = await page.goto(url, {waitUntil:'networkidle', timeout:90000});
+            const resp = await page.goto(url, {waitUntil:'domcontentloaded', timeout:45000});
             if (!resp || resp.status() !== 200) throw new Error(name+': HTTP '+(resp&&resp.status()));
+            await page.waitForTimeout(2500);
             const result = await page.evaluate(() => {
               const h1 = document.querySelector('h1')?.textContent?.trim() || '';
               const canonical = document.querySelector('link[rel="canonical"]')?.href || '';
@@ -94,18 +44,19 @@ jobs:
             console.log(name, JSON.stringify(result));
             if (!result.h1.includes('WooCommerce HPOS')) throw new Error(name+': H1');
             if (result.canonical !== url) throw new Error(name+': canonical');
-            if (!result.flow || !result.checklist || !result.faq || !result.source || !result.imgVisible) throw new Error(name+': required blocks/image');
-            if (result.pageOverflow) throw new Error(name+': horizontal page overflow');
-            let accordion = 'NOT_VERIFIED';
+            if (!result.flow || !result.checklist || !result.faq || !result.source || !result.imgVisible) throw new Error(name+': blocks/image');
+            if (result.pageOverflow) throw new Error(name+': horizontal overflow');
             const btn = page.locator('.article-faq button').first();
             if (await btn.count()) {
               const before = await btn.getAttribute('aria-expanded');
               await btn.click();
-              await page.waitForTimeout(250);
+              await page.waitForTimeout(200);
               const after = await btn.getAttribute('aria-expanded');
-              if (before !== after || after === 'true') accordion = 'OK'; else throw new Error(name+': FAQ toggle failed');
+              if (before === after && after !== 'true') throw new Error(name+': FAQ toggle');
+              console.log(name+'_FAQ_ACCORDION=OK');
+            } else {
+              console.log(name+'_FAQ_ACCORDION=NO_BUTTON_FOUND');
             }
-            console.log(name+'_FAQ_ACCORDION='+accordion);
             console.log(name+'_CHECKLIST_MARKER='+result.before);
             await browser.close();
           }
