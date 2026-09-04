@@ -21,14 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install renderers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq librsvg2-bin webp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq librsvg2-bin webp imagemagick
       - name: Render WebP covers
         run: |
           set -euo pipefail
           for name in cloudflare-d1-free-limits-2026 telegram-bot-api-10-3-rich-messages woocommerce-tormozit-prichiny-diagnostika stoimost-dorabotki-wordpress-2026; do
             rsvg-convert -w 1536 -h 1024 "assets/${name}.svg" -o "/tmp/${name}.png"
             cwebp -quiet -q 92 "/tmp/${name}.png" -o "/tmp/${name}.webp"
-            test "$(identify -format '%wx%h' /tmp/${name}.webp 2>/dev/null || true)" = "1536x1024" || file "/tmp/${name}.webp"
+            test "$(identify -format '%wx%h' "/tmp/${name}.webp")" = "1536x1024"
           done
       - name: Upload and verify byte-for-byte
         run: |
@@ -37,5 +37,12 @@ jobs:
             aws s3 cp "/tmp/${name}.webp" "s3://${R2_BUCKET}/2026/09/${name}.webp" --endpoint-url "$R2_ENDPOINT" --content-type image/webp --cache-control 'public,max-age=31536000,immutable'
             curl -fsS -o "/tmp/r2-${name}.webp" "https://img.likelyin.ru/2026/09/${name}.webp"
             cmp "/tmp/${name}.webp" "/tmp/r2-${name}.webp"
+            sha256sum "/tmp/${name}.webp"
+          done
+          for name in woocommerce-tormozit-prichiny-diagnostika stoimost-dorabotki-wordpress-2026; do
+            aws s3 cp "/tmp/${name}.webp" "s3://${R2_BUCKET}/2026/09/${name}-v3.webp" --endpoint-url "$R2_ENDPOINT" --content-type image/webp --cache-control 'public,max-age=31536000,immutable'
+            curl -fsS -o "/tmp/r2-${name}-v3.webp" "https://img.likelyin.ru/2026/09/${name}-v3.webp"
+            cmp "/tmp/${name}.webp" "/tmp/r2-${name}-v3.webp"
+            echo "v3 alias ${name}:"
             sha256sum "/tmp/${name}.webp"
           done
