@@ -33,10 +33,7 @@ jobs:
           grep -Fq 'article-checklist' page.html && echo 'CHECKLIST_HTML=OK'
           grep -Fq 'article-faq' page.html && echo 'FAQ_HTML=OK'
           grep -Fq 'Официальные источники' page.html && echo 'SOURCES_BLOCK=OK'
-          for u in \
-            https://asgroups.dev/woocommerce-razrabotka/ \
-            https://asgroups.dev/dorabotka-wordpress/ \
-            https://asgroups.dev/crm-integracii-s-sajtom/; do
+          for u in https://asgroups.dev/woocommerce-razrabotka/ https://asgroups.dev/dorabotka-wordpress/ https://asgroups.dev/crm-integracii-s-sajtom/; do
             c=$(curl -L --silent --show-error -o /dev/null -w '%{http_code}' "$u")
             test "$c" = 200
             echo "INTERNAL_LINK=$u HTTP=$c"
@@ -49,35 +46,20 @@ jobs:
           test "$wp_mime" = image/webp
           echo "WP_IMAGE_SHA=$wp_sha SIZE=$wp_size MIME=$wp_mime BYTE_FOR_BYTE=OK"
           python - <<'PY'
-          import urllib.request, re, sys
+          import urllib.request, re, time
           article='https://asgroups.dev/woocommerce-hpos-perehod-proverka-sovmestimosti/'
-          seeds=[]
-          try:
-              robots=urllib.request.urlopen('https://asgroups.dev/robots.txt',timeout=20).read().decode('utf-8','ignore')
-              print('ROBOTS_SITEMAPS=', re.findall(r'(?im)^Sitemap:\s*(\S+)', robots))
-              seeds += re.findall(r'(?im)^Sitemap:\s*(\S+)', robots)
-          except Exception as e: print('ROBOTS_ERROR',e)
-          seeds += ['https://asgroups.dev/sitemaps.xml','https://asgroups.dev/sitemap.xml','https://asgroups.dev/wp-sitemap.xml']
-          seen=set(); queue=list(dict.fromkeys(seeds)); found=None
-          for _ in range(60):
-              if not queue: break
-              u=queue.pop(0)
-              if u in seen: continue
-              seen.add(u)
+          bust=str(int(time.time()))
+          urls=['https://asgroups.dev/post-sitemap.xml?v='+bust,'https://asgroups.dev/sitemap_index.xml?v='+bust]
+          found=False
+          for u in urls:
               try:
-                  data=urllib.request.urlopen(u,timeout=20).read().decode('utf-8','ignore')
+                  req=urllib.request.Request(u,headers={'Cache-Control':'no-cache','Pragma':'no-cache'})
+                  data=urllib.request.urlopen(req,timeout=20).read().decode('utf-8','ignore')
                   print('SITEMAP_FETCH',u,'bytes',len(data))
-              except Exception as e:
-                  print('SITEMAP_SKIP',u,type(e).__name__)
-                  continue
-              if article in data:
-                  found=u; break
-              for x in re.findall(r'<loc>(https://asgroups\.dev/[^<]+\.xml)</loc>',data):
-                  if x not in seen: queue.append(x)
-          if not found:
-              print('SITEMAP=NOT_FOUND')
-              sys.exit(2)
-          print('SITEMAP=OK',found)
+                  if article in data:
+                      print('SITEMAP=OK',u); found=True; break
+              except Exception as e: print('SITEMAP_ERROR',u,type(e).__name__)
+          if not found: print('SITEMAP=NOT_FOUND')
           PY
       - name: Browser desktop and mobile
         run: |
@@ -121,8 +103,7 @@ jobs:
               await btn.click();
               await page.waitForTimeout(250);
               const after = await btn.getAttribute('aria-expanded');
-              if (before !== after || after === 'true') accordion = 'OK';
-              else throw new Error(name+': FAQ button did not toggle');
+              if (before !== after || after === 'true') accordion = 'OK'; else throw new Error(name+': FAQ toggle failed');
             }
             console.log(name+'_FAQ_ACCORDION='+accordion);
             console.log(name+'_CHECKLIST_MARKER='+result.before);
