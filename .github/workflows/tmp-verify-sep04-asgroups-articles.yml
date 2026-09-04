@@ -1,0 +1,31 @@
+name: Temporary verify Sep04 A.S Groups articles
+on:
+  push:
+    paths:
+      - '.github/workflows/tmp-verify-sep04-asgroups-articles.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify desktop mobile SEO and sitemap
+        run: |
+          set -euo pipefail
+          slugs=(cloudflare-d1-free-limits-2026 telegram-bot-api-10-3-rich-messages)
+          for slug in "${slugs[@]}"; do
+            url="https://asgroups.dev/${slug}/"
+            curl -fsSL -A 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140 Safari/537.36' "$url" -o "/tmp/${slug}-desktop.html"
+            curl -fsSL -A 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36' "$url" -o "/tmp/${slug}-mobile.html"
+            grep -Fq "rel=\"canonical\" href=\"${url}\"" "/tmp/${slug}-desktop.html"
+            grep -q 'BlogPosting' "/tmp/${slug}-desktop.html"
+            grep -q 'FAQPage' "/tmp/${slug}-desktop.html"
+            grep -q 'wp-post-image\|featured' "/tmp/${slug}-desktop.html"
+            grep -q 'asgroups.dev/' "/tmp/${slug}-desktop.html"
+            test "$(wc -c < /tmp/${slug}-desktop.html)" -gt 30000
+            test "$(wc -c < /tmp/${slug}-mobile.html)" -gt 30000
+            echo "OK page desktop/mobile canonical schemas image links: $url"
+          done
+          curl -fsSL https://asgroups.dev/post-sitemap.xml -o /tmp/sitemap.xml
+          for slug in "${slugs[@]}"; do grep -q "https://asgroups.dev/${slug}/" /tmp/sitemap.xml; done
+          echo 'OK sitemap contains both articles'
