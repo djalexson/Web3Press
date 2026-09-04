@@ -20,10 +20,10 @@ jobs:
           code=$(curl -L --silent --show-error -o page.html -w '%{http_code}' "$ARTICLE_URL")
           test "$code" = 200
           echo "ARTICLE_HTTP=$code"
-          grep -Fq "<h1" page.html
+          grep -Fq '<h1' page.html
           grep -Fq "$EXPECTED_TITLE" page.html
           echo 'H1_TITLE=OK'
-          canonical=$(grep -oE '<link[^>]+rel=["'"']canonical["'"'][^>]+>' page.html | head -1 || true)
+          canonical=$(grep -oE '<link[^>]+rel="canonical"[^>]+>' page.html | head -1 || true)
           echo "$canonical"
           echo "$canonical" | grep -Fq "$ARTICLE_URL"
           echo 'CANONICAL=OK'
