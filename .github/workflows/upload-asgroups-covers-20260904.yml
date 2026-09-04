@@ -1,0 +1,83 @@
+name: Upload A.S Groups article covers 2026-09-04
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-asgroups-covers-20260904.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      WOO_BLOB: '8a17bd53f92b34411a48fd83bdf51dcb9fd24d27'
+      WP_BLOB: '4f280537d6c671ddd30fab614a8b2cc6e56d62f8'
+      WOO_SIZE: '97902'
+      WP_SIZE: '132832'
+      WOO_SHA256: '0567921b4e2cba2acf2b9e94194d86e5131f1ba391594a668cad819d06776da9'
+      WP_SHA256: 'e684033f75f4d5e1d24abb2695b160eee17cf3b6e82fdb5155fc4c2b1c6b78c4'
+      WOO_OBJECT: '2026/09/woocommerce-tormozit-prichiny-diagnostika-v2.webp'
+      WP_OBJECT: '2026/09/stoimost-dorabotki-wordpress-2026-v2.webp'
+      WOO_PUBLIC: 'https://img.likelyin.ru/2026/09/woocommerce-tormozit-prichiny-diagnostika-v2.webp'
+      WP_PUBLIC: 'https://img.likelyin.ru/2026/09/stoimost-dorabotki-wordpress-2026-v2.webp'
+    steps:
+      - name: Restore exact WebP bytes from temporary Git blobs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fetch_blob() {
+            local sha="$1" out="$2"
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              "https://api.github.com/repos/djalexson/Web3Press/git/blobs/${sha}" \
+              | jq -r '.content' | tr -d '\n' | base64 -d > "$out"
+          }
+          fetch_blob "$WOO_BLOB" /tmp/woo.webp
+          fetch_blob "$WP_BLOB" /tmp/wp.webp
+          test "$(wc -c < /tmp/woo.webp)" -eq "$WOO_SIZE"
+          test "$(wc -c < /tmp/wp.webp)" -eq "$WP_SIZE"
+          echo "$WOO_SHA256  /tmp/woo.webp" | sha256sum -c -
+          echo "$WP_SHA256  /tmp/wp.webp" | sha256sum -c -
+          file /tmp/woo.webp /tmp/wp.webp
+
+      - name: Binary PUT both covers to R2 Worker
+        shell: bash
+        env:
+          R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          upload_one() {
+            local file="$1" object="$2" public="$3" expected_size="$4"
+            response="$(curl --fail-with-body --silent --show-error \
+              -X PUT \
+              "https://upload.likelyin.ru/v1/upload/${object}" \
+              -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+              -H 'Content-Type: image/webp' \
+              -H 'X-ASG-Overwrite: true' \
+              --data-binary "@${file}")"
+            echo "$response"
+            echo "$response" | jq -e --arg url "$public" --argjson size "$expected_size" '.ok == true and .url == $url and .size == $size' >/dev/null
+          }
+          upload_one /tmp/woo.webp "$WOO_OBJECT" "$WOO_PUBLIC" "$WOO_SIZE"
+          upload_one /tmp/wp.webp "$WP_OBJECT" "$WP_PUBLIC" "$WP_SIZE"
+
+      - name: Verify public R2 objects byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${WOO_PUBLIC}?verify=${GITHUB_SHA}" -o /tmp/woo-r2.webp
+          curl --fail --silent --show-error "${WP_PUBLIC}?verify=${GITHUB_SHA}" -o /tmp/wp-r2.webp
+          test "$(wc -c < /tmp/woo-r2.webp)" -eq "$WOO_SIZE"
+          test "$(wc -c < /tmp/wp-r2.webp)" -eq "$WP_SIZE"
+          echo "$WOO_SHA256  /tmp/woo-r2.webp" | sha256sum -c -
+          echo "$WP_SHA256  /tmp/wp-r2.webp" | sha256sum -c -
+          cmp /tmp/woo.webp /tmp/woo-r2.webp
+          cmp /tmp/wp.webp /tmp/wp-r2.webp
+          echo "VERIFIED_WOO=$WOO_PUBLIC"
+          echo "VERIFIED_WP=$WP_PUBLIC"
