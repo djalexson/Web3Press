@@ -4,6 +4,8 @@ on:
     paths:
       - 'assets/kwork-alternatives-2026.svg'
       - 'assets/kwork-client-search-2026.svg'
+      - 'assets/kwork-vs-flru-2026.svg'
+      - 'assets/kwork-vs-profiru-2026.svg'
       - '.github/workflows/upload-kwork-alternatives-covers.yml'
 permissions:
   contents: read
@@ -25,14 +27,15 @@ jobs:
           set -euo pipefail
           rsvg-convert -w 1536 -h 1024 assets/kwork-alternatives-2026.svg -o /tmp/kwork-alternatives-2026.png
           rsvg-convert -w 1536 -h 1024 assets/kwork-client-search-2026.svg -o /tmp/kwork-client-search-2026.png
+          rsvg-convert -w 1536 -h 1024 assets/kwork-vs-flru-2026.svg -o /tmp/kwork-vs-flru-2026.png
+          rsvg-convert -w 1536 -h 1024 assets/kwork-vs-profiru-2026.svg -o /tmp/kwork-vs-profiru-2026.png
           file /tmp/kwork-*.png
       - name: Upload and verify
         run: |
           set -euo pipefail
-          aws s3 cp /tmp/kwork-alternatives-2026.png s3://${R2_BUCKET}/2026/09/kwork-alternatives-2026.png --endpoint-url "$R2_ENDPOINT" --content-type image/png --cache-control 'public,max-age=31536000,immutable'
-          aws s3 cp /tmp/kwork-client-search-2026.png s3://${R2_BUCKET}/2026/09/kwork-client-search-2026.png --endpoint-url "$R2_ENDPOINT" --content-type image/png --cache-control 'public,max-age=31536000,immutable'
-          curl -fsS -o /tmp/r2-a.png https://img.likelyin.ru/2026/09/kwork-alternatives-2026.png
-          curl -fsS -o /tmp/r2-b.png https://img.likelyin.ru/2026/09/kwork-client-search-2026.png
-          cmp /tmp/kwork-alternatives-2026.png /tmp/r2-a.png
-          cmp /tmp/kwork-client-search-2026.png /tmp/r2-b.png
-          sha256sum /tmp/kwork-alternatives-2026.png /tmp/kwork-client-search-2026.png
+          for name in kwork-alternatives-2026 kwork-client-search-2026 kwork-vs-flru-2026 kwork-vs-profiru-2026; do
+            aws s3 cp "/tmp/${name}.png" "s3://${R2_BUCKET}/2026/09/${name}.png" --endpoint-url "$R2_ENDPOINT" --content-type image/png --cache-control 'public,max-age=31536000,immutable'
+            curl -fsS -o "/tmp/r2-${name}.png" "https://img.likelyin.ru/2026/09/${name}.png"
+            cmp "/tmp/${name}.png" "/tmp/r2-${name}.png"
+            sha256sum "/tmp/${name}.png"
+          done
