@@ -127,9 +127,18 @@ jobs:
         run: |
           set -euo pipefail
           src="$RUNNER_TEMP/source-image"
+
           curl -fL --retry 2 --retry-all-errors \
             -o "$src" \
-            "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t"
+            "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t" || true
+
+          mime=$(file -b --mime-type "$src" 2>/dev/null || true)
+          if [[ "$mime" != image/* ]]; then
+            echo "Direct Drive download returned $mime; trying gdown to resolve Drive interstitial."
+            rm -f "$src"
+            python3 -m pip install --disable-pip-version-check --quiet gdown
+            python3 -m gdown --id "$DRIVE_FILE_ID" --output "$src"
+          fi
 
           size=$(wc -c < "$src" | tr -d ' ')
           mime=$(file -b --mime-type "$src")
@@ -137,7 +146,7 @@ jobs:
           echo "SOURCE size=$size mime=$mime sha256=$sha"
 
           if (( size < MIN_BYTES )); then
-            echo "Drive download is too small. The file may be private or Drive may have returned an HTML access page." >&2
+            echo "Drive download is too small." >&2
             exit 1
           fi
           [[ "$mime" == image/* ]]
