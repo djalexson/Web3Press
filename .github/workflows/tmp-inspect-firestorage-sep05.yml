@@ -18,6 +18,9 @@ jobs:
           set -euo pipefail
           curl -L --silent --show-error 'https://firestorage.ai/ja/f/KDXdRozgwrJj' -o page.html
           echo "PAGE_MIME=$(file -b --mime-type page.html) SIZE=$(wc -c < page.html)"
-          grep -Eo 'https://[^"<> ]+' page.html | grep -E 'download|file|storage|cdn' | head -30 || true
-          grep -Eo 'href="[^"]+"' page.html | grep -E 'download|file|a_wide_' | head -30 || true
-          grep -n -E 'a_wide_modern|a_wide_well|01a070f8d7197425b0bb8ed0ce505e8a|01a070f8fcf3750eb4bd03c1940895a2' page.html | head -20 || true
+          echo '--- scripts ---'
+          grep -Eo '<script[^>]+src="[^"]+"' page.html | head -30 || true
+          echo '--- endpoints/identifiers ---'
+          grep -Eo '[/A-Za-z0-9_.?=&:-]*(api|share|file|download|public)[/A-Za-z0-9_.?=&:%-]*' page.html | head -80 || true
+          echo '--- relevant lines ---'
+          grep -niE 'download|api|public_id|file_id|share|fetch\(' page.html | head -80 || true
