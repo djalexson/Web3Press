@@ -12,12 +12,13 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect share JS
+      - name: Render firestorage share page
         shell: bash
         run: |
           set -euo pipefail
-          base='https://firestorage.ai'
-          js='/_next/static/chunks/app/(files)/ja/f/page-4d19ae0a4ce39d79.js'
-          curl -L --silent --show-error "$base$js" -o app.js
-          echo "JS_SIZE=$(wc -c < app.js)"
-          grep -Eo '.{0,120}(fetch\(|/api/|download|share|publicId|fileId).{0,220}' app.js | head -120 || true
+          chrome=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          echo "CHROME=$chrome"
+          test -n "$chrome"
+          "$chrome" --headless --no-sandbox --disable-gpu --virtual-time-budget=8000 --dump-dom 'https://firestorage.ai/ja/f/KDXdRozgwrJj' > rendered.html
+          echo "DOM_SIZE=$(wc -c < rendered.html)"
+          grep -niE 'a_wide_modern|a_wide_well|download|href=|src=' rendered.html | tail -120 || true
