@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "18vncsalaHsHQZXLJOWLUseI91tifxX-o",
+  "r2_key": "2026/09/cloudflare-turnstile-wordpress.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "5ef9cbf849d974ec94137f1af0eb5edacd1d9487c80cdaa3f2b41827d57fa30c",
+  "expected_size": 37402,
+  "min_bytes": 10000
+}
