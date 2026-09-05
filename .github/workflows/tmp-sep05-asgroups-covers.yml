@@ -1,0 +1,77 @@
+name: Prepare A.S Groups Sep05 covers
+
+on:
+  push:
+    paths:
+      - ".github/workflows/tmp-sep05-asgroups-covers.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upload-covers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      SOURCE_URL: https://pd.w.org/2025/02/41667ab2010c76734.40396731-scaled.jpg
+    steps:
+      - name: Build WebP covers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          curl --fail --location --silent --show-error "$SOURCE_URL" -o source.jpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick >/dev/null
+
+          convert source.jpg -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 \
+            -fill 'rgba(0,0,0,0.60)' -draw 'roundrectangle 62,706 1474,968 28,28' \
+            -font DejaVu-Sans-Bold -pointsize 66 -fill white -gravity southwest -annotate +95+190 'ПЕРЕНОС МАГАЗИНА НА WOOCOMMERCE' \
+            -font DejaVu-Sans -pointsize 36 -fill white -gravity southwest -annotate +98+120 'SEO, товары, заказы и безопасный запуск' \
+            -strip -quality 78 cover-migration.webp
+
+          convert source.jpg -auto-orient -flop -resize '1536x1024^' -gravity center -extent 1536x1024 \
+            -fill 'rgba(0,0,0,0.64)' -draw 'roundrectangle 62,706 1474,968 28,28' \
+            -font DejaVu-Sans-Bold -pointsize 74 -fill white -gravity southwest -annotate +95+190 'WEBHOOK И API БЕЗ ДУБЛЕЙ' \
+            -font DejaVu-Sans -pointsize 36 -fill white -gravity southwest -annotate +98+120 'Подписи, retry, idempotency и журнал событий' \
+            -strip -quality 78 cover-webhooks.webp
+
+          for f in cover-migration.webp cover-webhooks.webp; do
+            test "$(identify -format '%wx%h' "$f")" = '1536x1024'
+            test "$(file -b --mime-type "$f")" = 'image/webp'
+            size=$(wc -c < "$f")
+            test "$size" -gt 0
+            echo "$f SIZE=$size SHA256=$(sha256sum "$f" | awk '{print $1}')"
+          done
+
+      - name: Binary PUT to R2 and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          upload_verify() {
+            local file="$1"
+            local key="$2"
+            local public_url="https://img.likelyin.ru/$key"
+            local code
+            code=$(curl --silent --show-error --output "$RUNNER_TEMP/upload-response.txt" --write-out '%{http_code}' \
+              --request PUT \
+              --header "Authorization: Bearer $R2_UPLOAD_API_TOKEN" \
+              --header 'Content-Type: image/webp' \
+              --data-binary "@$file" \
+              "https://upload.likelyin.ru/v1/upload/$key")
+            if [[ "$code" != "200" && "$code" != "201" ]]; then
+              echo "R2 upload failed for $key: HTTP $code" >&2
+              cat "$RUNNER_TEMP/upload-response.txt" >&2 || true
+              exit 1
+            fi
+            curl --fail --location --silent --show-error "$public_url?v=${GITHUB_RUN_ID}" -o "$RUNNER_TEMP/r2.webp"
+            src_sha=$(sha256sum "$file" | awk '{print $1}')
+            r2_sha=$(sha256sum "$RUNNER_TEMP/r2.webp" | awk '{print $1}')
+            test "$src_sha" = "$r2_sha"
+            test "$(file -b --mime-type "$RUNNER_TEMP/r2.webp")" = 'image/webp'
+            test "$(identify -format '%wx%h' "$RUNNER_TEMP/r2.webp")" = '1536x1024'
+            echo "R2_OK $public_url SHA256=$r2_sha SIZE=$(wc -c < "$RUNNER_TEMP/r2.webp")"
+          }
+          upload_verify cover-migration.webp '2026/09/perenos-magazina-na-woocommerce-bez-poteri-seo.webp'
+          upload_verify cover-webhooks.webp '2026/09/webhook-api-integracii-bez-dublej.webp'
