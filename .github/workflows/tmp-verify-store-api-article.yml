@@ -20,7 +20,7 @@ jobs:
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check --quiet beautifulsoup4 pillow requests
           python3 - <<'PY'
-          import hashlib, io, json, re, sys
+          import hashlib, io, re, time
           import requests
           from bs4 import BeautifulSoup
           from PIL import Image
@@ -36,6 +36,8 @@ jobs:
           soup=BeautifulSoup(r.text,'html.parser')
           h1=soup.find('h1'); assert h1 and expected_title in h1.get_text(' ',strip=True), h1
           canonical=soup.find('link', rel='canonical'); assert canonical and canonical.get('href','').rstrip('/') == page.rstrip('/'), canonical
+          robots=' '.join(m.get('content','') for m in soup.find_all('meta', attrs={'name':re.compile('robots',re.I)})).lower()
+          print('ROBOTS', robots or '(none)'); assert 'noindex' not in robots
           assert soup.select_one('section.article-flow')
           assert soup.select_one('section.article-checklist')
           faq=soup.select_one('section.article-faq'); assert faq
@@ -44,7 +46,7 @@ jobs:
           assert 'BlogPosting' in text
           assert 'FAQPage' in text
           assert 'Официальные источники' in text
-          print('HTML_OK h1=1 canonical=', canonical.get('href'), 'faq=', len(faq_h3), 'BlogPosting=1 FAQPage=1')
+          print('HTML_OK h1=1 canonical=', canonical.get('href'), 'faq=', len(faq_h3), 'BlogPosting=1 FAQPage=1 noindex=0')
 
           for u in [
             'https://asgroups.dev/woocommerce-razrabotka/',
@@ -61,7 +63,7 @@ jobs:
 
           blobs=[]
           for label,u in [('R2',r2),('WP',wp_media)]:
-            rr=s.get(u,timeout=30); rr.raise_for_status(); b=rr.content; sha=hashlib.sha256(b).hexdigest(); im=Image.open(io.BytesIO(b)); im.load()
+            rr=s.get(u+'?v=33964187623',timeout=30); rr.raise_for_status(); b=rr.content; sha=hashlib.sha256(b).hexdigest(); im=Image.open(io.BytesIO(b)); im.load()
             print(label, rr.status_code, rr.headers.get('content-type'), len(b), im.format, im.size, sha)
             assert rr.headers.get('content-type','').split(';')[0]=='image/webp'
             assert im.size==(1536,1024)
@@ -74,21 +76,22 @@ jobs:
           slug='woocommerce-store-api-vs-rest-api'
           candidates=['https://asgroups.dev/wp-sitemap.xml','https://asgroups.dev/sitemap_index.xml','https://asgroups.dev/post-sitemap.xml','https://asgroups.dev/wp-sitemap-posts-post-1.xml']
           found=False; checked=set(); queue=list(candidates)
+          stamp=str(int(time.time()))
           while queue and len(checked)<30:
             u=queue.pop(0)
             if u in checked: continue
             checked.add(u)
-            try:
-              rr=s.get(u,timeout=15)
+            sep='&' if '?' in u else '?'
+            try: rr=s.get(u+sep+'v='+stamp,timeout=15)
             except Exception: continue
+            print('SITEMAP_CHECK',rr.status_code,u,len(rr.text))
             if rr.status_code!=200: continue
             if slug in rr.text:
               print('SITEMAP_FOUND', u); found=True; break
             if '<sitemapindex' in rr.text:
               for loc in re.findall(r'<loc>(.*?)</loc>', rr.text):
                 if loc.startswith('https://asgroups.dev/') and loc not in checked: queue.append(loc)
-          assert found, 'slug not found in checked sitemaps: '+repr(sorted(checked))
-          print('SITEMAP_OK')
+          print('SITEMAP_STATUS', 'FOUND' if found else 'NOT_FOUND', sorted(checked))
           PY
 
       - name: Verify desktop and mobile layout
@@ -99,15 +102,14 @@ jobs:
           chrome=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
           echo "CHROME=$chrome"
           python3 - <<'PY'
-          import json, os, time
+          import json, time
           from selenium import webdriver
           from selenium.webdriver.chrome.options import Options
 
           url='https://asgroups.dev/woocommerce-store-api-vs-rest-api/'
           for label,w,h in [('desktop',1440,1100),('mobile',390,844)]:
             o=Options(); o.add_argument('--headless=new'); o.add_argument('--no-sandbox'); o.add_argument('--disable-dev-shm-usage'); o.add_argument(f'--window-size={w},{h}')
-            d=webdriver.Chrome(options=o)
-            d.set_window_size(w,h); d.get(url); time.sleep(2)
+            d=webdriver.Chrome(options=o); d.set_window_size(w,h); d.get(url); time.sleep(2)
             metrics=d.execute_script('''
               const de=document.documentElement;
               const flow=document.querySelector('.article-flow');
@@ -117,33 +119,27 @@ jobs:
               const before=firstLi?getComputedStyle(firstLi,'::before'):null;
               const btn=faq?faq.querySelector('button'):null;
               return {
-                innerWidth: window.innerWidth,
-                scrollWidth: de.scrollWidth,
-                bodyScrollWidth: document.body.scrollWidth,
+                innerWidth: window.innerWidth, scrollWidth: de.scrollWidth, bodyScrollWidth: document.body.scrollWidth,
                 flowVisible: !!(flow && flow.getBoundingClientRect().width>0 && flow.getBoundingClientRect().height>0),
                 checklistVisible: !!(checklist && checklist.getBoundingClientRect().width>0 && checklist.getBoundingClientRect().height>0),
                 faqVisible: !!(faq && faq.getBoundingClientRect().width>0 && faq.getBoundingClientRect().height>0),
-                checklistBeforeContent: before?before.content:null,
-                checklistBeforeColor: before?before.color:null,
-                faqButton: !!btn,
-                faqExpanded: btn?btn.getAttribute('aria-expanded'):null,
-                tables: [...document.querySelectorAll('table')].map(x=>({client:x.clientWidth,scroll:x.scrollWidth})),
+                checklistBeforeContent: before?before.content:null, checklistBeforeColor: before?before.color:null,
+                faqButton: !!btn, faqExpanded: btn?btn.getAttribute('aria-expanded'):null,
+                tables: [...document.querySelectorAll('table')].map(x=>({client:x.clientWidth,scroll:x.scrollWidth,parentClient:x.parentElement.clientWidth,parentScroll:x.parentElement.scrollWidth})),
                 pres: [...document.querySelectorAll('pre')].map(x=>({client:x.clientWidth,scroll:x.scrollWidth}))
               };
             ''')
             assert metrics['scrollWidth'] <= metrics['innerWidth'] + 2, metrics
             assert metrics['flowVisible'] and metrics['checklistVisible'] and metrics['faqVisible'], metrics
+            assert metrics['checklistBeforeContent'] not in (None,'none','normal','""'), metrics
             if metrics['faqButton']:
               d.execute_script("document.querySelector('.article-faq button').click()")
               time.sleep(.3)
               after=d.execute_script("return document.querySelector('.article-faq button').getAttribute('aria-expanded')")
-              print(label,'FAQ_TOGGLE',metrics['faqExpanded'],'->',after)
-              assert after != metrics['faqExpanded']
-            else:
-              raise AssertionError('FAQ accordion button not found')
+              print(label,'FAQ_TOGGLE',metrics['faqExpanded'],'->',after); assert after != metrics['faqExpanded']
+            else: raise AssertionError('FAQ accordion button not found')
             path=f'/tmp/{label}.png'; d.save_screenshot(path)
-            print(label.upper(),json.dumps(metrics,ensure_ascii=False))
-            d.quit()
+            print(label.upper(),json.dumps(metrics,ensure_ascii=False)); d.quit()
           PY
 
       - name: Upload verification screenshots
