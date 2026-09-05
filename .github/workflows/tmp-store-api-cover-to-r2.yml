@@ -1,0 +1,57 @@
+name: Temp — Store API cover to R2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tmp-store-api-cover-to-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
+      R2_BUCKET: asgroups-images
+      DRIVE_FILE_ID: 1Hn2ifaqUET1LlesoEhOV1_zlpOonPY9q
+      R2_KEY: 2026/09/woocommerce-store-api-vs-rest-api.webp
+      EXPECTED_SHA256: 3d83c5e58ca237e1eefcfb2fe3e732fca58c96e8f8d8406c5c8f10cffecd23f5
+    steps:
+      - name: Download exact Drive image
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source.webp"
+          curl -fL --retry 2 --retry-all-errors -o "$src" "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t"
+          size=$(wc -c < "$src" | tr -d ' ')
+          mime=$(file -b --mime-type "$src")
+          sha=$(sha256sum "$src" | awk '{print $1}')
+          echo "SOURCE size=$size mime=$mime sha256=$sha"
+          test "$size" -ge 10000
+          test "$mime" = "image/webp"
+          test "$sha" = "$EXPECTED_SHA256"
+
+      - name: Upload exact bytes to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source.webp"
+          aws s3 cp "$src" "s3://${R2_BUCKET}/${R2_KEY}" --endpoint-url "$R2_ENDPOINT" --content-type image/webp --cache-control 'public,max-age=31536000,immutable'
+
+      - name: Verify R2 byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source.webp"
+          dst="$RUNNER_TEMP/r2.webp"
+          url="https://img.likelyin.ru/${R2_KEY}"
+          curl -fsSL --retry 2 -o "$dst" "${url}?v=${GITHUB_RUN_ID}"
+          cmp "$src" "$dst"
+          sha=$(sha256sum "$dst" | awk '{print $1}')
+          test "$sha" = "$EXPECTED_SHA256"
+          echo "R2_OK url=$url size=$(wc -c < "$dst") sha256=$sha"
