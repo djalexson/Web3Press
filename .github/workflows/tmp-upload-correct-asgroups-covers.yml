@@ -1,0 +1,75 @@
+name: Upload correct A.S Groups covers
+
+on:
+  push:
+    paths:
+      - ".github/workflows/tmp-upload-correct-asgroups-covers.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      SHARE: KDXdRozgwrJj
+    steps:
+      - name: Download exact generated PNG files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          get_file() {
+            local id="$1" out="$2" expected="$3"
+            curl --fail --silent --show-error --request POST \
+              "https://api.firestorage.ai/dev/file/shares/$SHARE/files/$id/download" -o response.json
+            url=$(jq -r '.downloadUrl // .download_url // .url // empty' response.json)
+            test -n "$url"
+            curl --fail --location --silent --show-error "$url" -o "$out"
+            test "$(file -b --mime-type "$out")" = 'image/png'
+            size=$(wc -c < "$out")
+            test "$size" = "$expected"
+            dims=$(identify -format '%wx%h' "$out")
+            echo "SOURCE_OK $out SIZE=$size DIMS=$dims SHA256=$(sha256sum "$out" | awk '{print $1}')"
+          }
+          get_file '01a070f8d7197425b0bb8ed0ce505e8a' source-woo.png '2035603'
+          get_file '01a070f8fcf3750eb4bd03c1940895a2' source-api.png '1943141'
+
+      - name: Convert exact images to WebP 1536x1024
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick >/dev/null
+          convert source-woo.png -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 -strip -quality 84 woo.webp
+          convert source-api.png -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 -strip -quality 84 api.webp
+          for f in woo.webp api.webp; do
+            test "$(identify -format '%wx%h' "$f")" = '1536x1024'
+            test "$(file -b --mime-type "$f")" = 'image/webp'
+            echo "WEBP_OK $f SIZE=$(wc -c < "$f") SHA256=$(sha256sum "$f" | awk '{print $1}')"
+          done
+
+      - name: Upload WebP to R2 and verify byte match
+        shell: bash
+        run: |
+          set -euo pipefail
+          put_verify() {
+            local file="$1" key="$2"
+            local pub="https://img.likelyin.ru/$key"
+            code=$(curl --silent --show-error --output response.txt --write-out '%{http_code}' \
+              --request PUT \
+              --header "Authorization: Bearer $R2_UPLOAD_API_TOKEN" \
+              --header 'Content-Type: image/webp' \
+              --data-binary "@$file" \
+              "https://upload.likelyin.ru/v1/upload/$key")
+            [[ "$code" == 200 || "$code" == 201 ]]
+            curl --fail --location --silent --show-error "$pub?v=${GITHUB_RUN_ID}" -o r2.webp
+            src=$(sha256sum "$file" | awk '{print $1}')
+            dst=$(sha256sum r2.webp | awk '{print $1}')
+            test "$src" = "$dst"
+            echo "R2_OK $pub SIZE=$(wc -c < r2.webp) SHA256=$dst"
+          }
+          put_verify woo.webp '2026/09/perenos-magazina-na-woocommerce-asgroups.webp'
+          put_verify api.webp '2026/09/webhook-api-integracii-asgroups.webp'
