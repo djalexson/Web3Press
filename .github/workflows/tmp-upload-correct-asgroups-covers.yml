@@ -16,6 +16,13 @@ jobs:
       R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
       SHARE: KDXdRozgwrJj
     steps:
+      - name: Install ImageMagick
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick >/dev/null
+
       - name: Download exact generated PNG files
         shell: bash
         run: |
@@ -41,8 +48,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick >/dev/null
           convert source-woo.png -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 -strip -quality 84 woo.webp
           convert source-api.png -auto-orient -resize '1536x1024^' -gravity center -extent 1536x1024 -strip -quality 84 api.webp
           for f in woo.webp api.webp; do
