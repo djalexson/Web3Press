@@ -117,14 +117,14 @@ jobs:
               const faq=document.querySelector('.article-faq');
               const firstLi=document.querySelector('.article-checklist li');
               const before=firstLi?getComputedStyle(firstLi,'::before'):null;
-              const btn=faq?faq.querySelector('button'):null;
+              const buttons=faq?[...faq.querySelectorAll('.faq-question')]:[];
               return {
                 innerWidth: window.innerWidth, scrollWidth: de.scrollWidth, bodyScrollWidth: document.body.scrollWidth,
                 flowVisible: !!(flow && flow.getBoundingClientRect().width>0 && flow.getBoundingClientRect().height>0),
                 checklistVisible: !!(checklist && checklist.getBoundingClientRect().width>0 && checklist.getBoundingClientRect().height>0),
                 faqVisible: !!(faq && faq.getBoundingClientRect().width>0 && faq.getBoundingClientRect().height>0),
                 checklistBeforeContent: before?before.content:null, checklistBeforeColor: before?before.color:null,
-                faqButton: !!btn, faqExpanded: btn?btn.getAttribute('aria-expanded'):null,
+                faqButtonCount: buttons.length, faqStates: buttons.map(b=>b.getAttribute('aria-expanded')),
                 tables: [...document.querySelectorAll('table')].map(x=>({client:x.clientWidth,scroll:x.scrollWidth,parentClient:x.parentElement.clientWidth,parentScroll:x.parentElement.scrollWidth})),
                 pres: [...document.querySelectorAll('pre')].map(x=>({client:x.clientWidth,scroll:x.scrollWidth}))
               };
@@ -132,21 +132,23 @@ jobs:
             assert metrics['scrollWidth'] <= metrics['innerWidth'] + 2, metrics
             assert metrics['flowVisible'] and metrics['checklistVisible'] and metrics['faqVisible'], metrics
             assert metrics['checklistBeforeContent'] not in (None,'none','normal','""'), metrics
-            if metrics['faqButton']:
-              d.execute_script("document.querySelector('.article-faq button').click()")
-              time.sleep(.3)
-              after=d.execute_script("return document.querySelector('.article-faq button').getAttribute('aria-expanded')")
-              print(label,'FAQ_TOGGLE',metrics['faqExpanded'],'->',after); assert after != metrics['faqExpanded']
-            else: raise AssertionError('FAQ accordion button not found')
+            assert metrics['faqButtonCount']==6, metrics
+            d.execute_script("document.querySelectorAll('.article-faq .faq-question')[1].click()")
+            time.sleep(.3)
+            states_after=d.execute_script("return [...document.querySelectorAll('.article-faq .faq-question')].map(b=>b.getAttribute('aria-expanded'))")
+            print(label,'FAQ_STATES',metrics['faqStates'],'->',states_after)
+            assert states_after[0]=='false' and states_after[1]=='true', states_after
             path=f'/tmp/{label}.png'; d.save_screenshot(path)
             print(label.upper(),json.dumps(metrics,ensure_ascii=False)); d.quit()
           PY
 
       - name: Upload verification screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: store-api-live-verification
           path: |
             /tmp/desktop.png
             /tmp/mobile.png
+          if-no-files-found: warn
           retention-days: 2
