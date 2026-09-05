@@ -1,0 +1,23 @@
+name: Inspect firestorage Sep05 sources
+
+on:
+  push:
+    paths:
+      - ".github/workflows/tmp-inspect-firestorage-sep05.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect share page
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --silent --show-error 'https://firestorage.ai/ja/f/KDXdRozgwrJj' -o page.html
+          echo "PAGE_MIME=$(file -b --mime-type page.html) SIZE=$(wc -c < page.html)"
+          grep -Eo 'https://[^"<> ]+' page.html | grep -E 'download|file|storage|cdn' | head -30 || true
+          grep -Eo 'href="[^"]+"' page.html | grep -E 'download|file|a_wide_' | head -30 || true
+          grep -n -E 'a_wide_modern|a_wide_well|01a070f8d7197425b0bb8ed0ce505e8a|01a070f8fcf3750eb4bd03c1940895a2' page.html | head -20 || true
