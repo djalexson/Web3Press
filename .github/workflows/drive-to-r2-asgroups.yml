@@ -26,6 +26,11 @@ on:
         required: false
         default: "10000"
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/asgroups-r2-jobs/*.json'
 
 permissions:
   contents: read
@@ -41,14 +46,64 @@ jobs:
       R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
       R2_BUCKET: asgroups-images
     steps:
+      - name: Check out repository
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Resolve inputs
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
+          MANUAL_R2_KEY: ${{ inputs.r2_key }}
+          MANUAL_CONTENT_TYPE: ${{ inputs.content_type }}
+          MANUAL_EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          MANUAL_MIN_BYTES: ${{ inputs.min_bytes }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            drive_file_id="$MANUAL_DRIVE_FILE_ID"
+            r2_key="$MANUAL_R2_KEY"
+            content_type="${MANUAL_CONTENT_TYPE:-image/webp}"
+            expected_sha256="${MANUAL_EXPECTED_SHA256:-}"
+            min_bytes="${MANUAL_MIN_BYTES:-10000}"
+          else
+            mapfile -t jobs < <(git diff --diff-filter=AM --name-only HEAD^ HEAD -- '.github/asgroups-r2-jobs/*.json' | sort -u)
+            if (( ${#jobs[@]} != 1 )); then
+              echo "Expected exactly one added/modified A.S Groups R2 job JSON, got ${#jobs[@]}" >&2
+              printf '%s\n' "${jobs[@]:-}" >&2
+              exit 1
+            fi
+            job="${jobs[0]}"
+            jq -e 'type == "object" and (.drive_file_id|type=="string" and length>0) and (.r2_key|type=="string" and length>0)' "$job" >/dev/null
+            drive_file_id=$(jq -r '.drive_file_id' "$job")
+            r2_key=$(jq -r '.r2_key' "$job")
+            content_type=$(jq -r '.content_type // "image/webp"' "$job")
+            expected_sha256=$(jq -r '.expected_sha256 // ""' "$job")
+            min_bytes=$(jq -r '(.min_bytes // 10000) | tostring' "$job")
+            echo "JOB_FILE=$job"
+          fi
+
+          {
+            echo "drive_file_id=$drive_file_id"
+            echo "r2_key=$r2_key"
+            echo "content_type=$content_type"
+            echo "expected_sha256=$expected_sha256"
+            echo "min_bytes=$min_bytes"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Validate inputs
         shell: bash
         env:
-          DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
-          R2_KEY: ${{ inputs.r2_key }}
-          CONTENT_TYPE: ${{ inputs.content_type }}
-          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
-          MIN_BYTES: ${{ inputs.min_bytes }}
+          DRIVE_FILE_ID: ${{ steps.resolve.outputs.drive_file_id }}
+          R2_KEY: ${{ steps.resolve.outputs.r2_key }}
+          CONTENT_TYPE: ${{ steps.resolve.outputs.content_type }}
+          EXPECTED_SHA256: ${{ steps.resolve.outputs.expected_sha256 }}
+          MIN_BYTES: ${{ steps.resolve.outputs.min_bytes }}
         run: |
           set -euo pipefail
           test -n "$AWS_ACCESS_KEY_ID"
@@ -66,9 +121,9 @@ jobs:
       - name: Download exact image from Google Drive
         shell: bash
         env:
-          DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
-          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
-          MIN_BYTES: ${{ inputs.min_bytes }}
+          DRIVE_FILE_ID: ${{ steps.resolve.outputs.drive_file_id }}
+          EXPECTED_SHA256: ${{ steps.resolve.outputs.expected_sha256 }}
+          MIN_BYTES: ${{ steps.resolve.outputs.min_bytes }}
         run: |
           set -euo pipefail
           src="$RUNNER_TEMP/source-image"
@@ -93,8 +148,8 @@ jobs:
       - name: Upload exact bytes to R2
         shell: bash
         env:
-          R2_KEY: ${{ inputs.r2_key }}
-          CONTENT_TYPE: ${{ inputs.content_type }}
+          R2_KEY: ${{ steps.resolve.outputs.r2_key }}
+          CONTENT_TYPE: ${{ steps.resolve.outputs.content_type }}
         run: |
           set -euo pipefail
           src="$RUNNER_TEMP/source-image"
@@ -106,7 +161,7 @@ jobs:
       - name: Verify R2 byte-for-byte
         shell: bash
         env:
-          R2_KEY: ${{ inputs.r2_key }}
+          R2_KEY: ${{ steps.resolve.outputs.r2_key }}
         run: |
           set -euo pipefail
           src="$RUNNER_TEMP/source-image"
@@ -122,7 +177,7 @@ jobs:
       - name: Summary
         shell: bash
         env:
-          R2_KEY: ${{ inputs.r2_key }}
+          R2_KEY: ${{ steps.resolve.outputs.r2_key }}
         run: |
           set -euo pipefail
           sha=$(sha256sum "$RUNNER_TEMP/source-image" | awk '{print $1}')
