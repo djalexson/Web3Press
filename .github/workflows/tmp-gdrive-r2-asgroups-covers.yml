@@ -1,0 +1,67 @@
+name: Upload A.S Groups covers from Google Drive
+
+on:
+  push:
+    paths:
+      - ".github/workflows/tmp-gdrive-r2-asgroups-covers.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+    steps:
+      - name: Download exact WebP files from Google Drive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$R2_UPLOAD_API_TOKEN"
+          download_drive() {
+            local id="$1"
+            local out="$2"
+            curl --fail --location --silent --show-error \
+              "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" \
+              -o "$out"
+            test "$(file -b --mime-type "$out")" = 'image/webp'
+            test "$(identify -format '%wx%h' "$out")" = '1536x1024'
+            echo "DRIVE_OK $out SIZE=$(wc -c < "$out") SHA256=$(sha256sum "$out" | awk '{print $1}')"
+          }
+          download_drive '1RsW8lyOPd5GVXZHcyzAFD2nIpr6w5Vk8' migration.webp
+          download_drive '1e5w703lODuODEMJNwBMiDLGl_k3LgBVY' webhooks.webp
+          test "$(sha256sum migration.webp | awk '{print $1}')" = 'd815e3e49b8854f616ad022da78a868f720dd83e967adf073002a49959dbd1f9'
+          test "$(sha256sum webhooks.webp | awk '{print $1}')" = '336853a2ad21101f83589260e053f06df8566549d5515fd4b0ee12c49296b5a1'
+
+      - name: Binary PUT exact Drive bytes to R2 and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          upload_verify() {
+            local file="$1"
+            local key="$2"
+            local public_url="https://img.likelyin.ru/$key"
+            local code
+            code=$(curl --silent --show-error --output "$RUNNER_TEMP/upload-response.txt" --write-out '%{http_code}' \
+              --request PUT \
+              --header "Authorization: Bearer $R2_UPLOAD_API_TOKEN" \
+              --header 'Content-Type: image/webp' \
+              --data-binary "@$file" \
+              "https://upload.likelyin.ru/v1/upload/$key")
+            if [[ "$code" != "200" && "$code" != "201" ]]; then
+              echo "R2 upload failed for $key: HTTP $code" >&2
+              cat "$RUNNER_TEMP/upload-response.txt" >&2 || true
+              exit 1
+            fi
+            curl --fail --location --silent --show-error "$public_url?v=${GITHUB_RUN_ID}" -o "$RUNNER_TEMP/r2.webp"
+            src_sha=$(sha256sum "$file" | awk '{print $1}')
+            r2_sha=$(sha256sum "$RUNNER_TEMP/r2.webp" | awk '{print $1}')
+            test "$src_sha" = "$r2_sha"
+            test "$(file -b --mime-type "$RUNNER_TEMP/r2.webp")" = 'image/webp'
+            test "$(identify -format '%wx%h' "$RUNNER_TEMP/r2.webp")" = '1536x1024'
+            echo "R2_OK $public_url SIZE=$(wc -c < "$RUNNER_TEMP/r2.webp") SHA256=$r2_sha"
+          }
+          upload_verify migration.webp '2026/09/perenos-magazina-na-woocommerce-generated.webp'
+          upload_verify webhooks.webp '2026/09/webhook-api-integracii-generated.webp'
