@@ -1,23 +1,42 @@
-name: A.S Groups — Google Drive to R2
+name: A.S Groups — Exact image to R2
 
 on:
   workflow_dispatch:
     inputs:
-      drive_file_id:
-        description: "Google Drive file ID of the exact image"
+      source_mode:
+        description: "Source transport: drive or source_url"
         required: true
+        default: "drive"
+        type: choice
+        options:
+          - drive
+          - source_url
+      drive_file_id:
+        description: "Google Drive file ID (required for source_mode=drive)"
+        required: false
+        default: ""
+        type: string
+      source_url:
+        description: "Temporary HTTPS URL for exact source bytes (manual dispatch only; never commit it)"
+        required: false
+        default: ""
         type: string
       r2_key:
         description: "Destination key, e.g. 2026/09/article-cover.webp"
         required: true
         type: string
       content_type:
-        description: "MIME type"
+        description: "Expected image MIME type"
         required: true
         default: "image/webp"
         type: string
       expected_sha256:
-        description: "Optional expected SHA-256 of source bytes"
+        description: "Expected SHA-256 of exact source bytes"
+        required: false
+        default: ""
+        type: string
+      expected_size:
+        description: "Optional exact byte size"
         required: false
         default: ""
         type: string
@@ -40,11 +59,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
-      R2_BUCKET: asgroups-images
+      R2_UPLOAD_API_TOKEN: ${{ secrets.R2_UPLOAD_API_TOKEN }}
+      GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON }}
+      R2_UPLOAD_BASE: https://upload.likelyin.ru/v1/upload
+      R2_PUBLIC_BASE: https://img.likelyin.ru
+
     steps:
       - name: Check out repository
         if: github.event_name == 'push'
@@ -57,19 +76,25 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          MANUAL_SOURCE_MODE: ${{ inputs.source_mode }}
           MANUAL_DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
+          MANUAL_SOURCE_URL: ${{ inputs.source_url }}
           MANUAL_R2_KEY: ${{ inputs.r2_key }}
           MANUAL_CONTENT_TYPE: ${{ inputs.content_type }}
           MANUAL_EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          MANUAL_EXPECTED_SIZE: ${{ inputs.expected_size }}
           MANUAL_MIN_BYTES: ${{ inputs.min_bytes }}
         run: |
           set -euo pipefail
 
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
-            drive_file_id="$MANUAL_DRIVE_FILE_ID"
+            source_mode="${MANUAL_SOURCE_MODE:-drive}"
+            drive_file_id="${MANUAL_DRIVE_FILE_ID:-}"
+            source_url="${MANUAL_SOURCE_URL:-}"
             r2_key="$MANUAL_R2_KEY"
             content_type="${MANUAL_CONTENT_TYPE:-image/webp}"
             expected_sha256="${MANUAL_EXPECTED_SHA256:-}"
+            expected_size="${MANUAL_EXPECTED_SIZE:-}"
             min_bytes="${MANUAL_MIN_BYTES:-10000}"
           else
             mapfile -t jobs < <(git diff --diff-filter=AM --name-only HEAD^ HEAD -- '.github/asgroups-r2-jobs/*.json' | sort -u)
@@ -78,94 +103,209 @@ jobs:
               printf '%s\n' "${jobs[@]:-}" >&2
               exit 1
             fi
+
             job="${jobs[0]}"
-            jq -e 'type == "object" and (.drive_file_id|type=="string" and length>0) and (.r2_key|type=="string" and length>0)' "$job" >/dev/null
-            drive_file_id=$(jq -r '.drive_file_id' "$job")
-            r2_key=$(jq -r '.r2_key' "$job")
-            content_type=$(jq -r '.content_type // "image/webp"' "$job")
-            expected_sha256=$(jq -r '.expected_sha256 // ""' "$job")
-            min_bytes=$(jq -r '(.min_bytes // 10000) | tostring' "$job")
+            jq -e '
+              type == "object"
+              and (.r2_key | type == "string" and length > 0)
+              and ((.source_mode // "drive") | IN("drive", "source_url"))
+            ' "$job" >/dev/null
+
+            source_mode="$(jq -r '.source_mode // "drive"' "$job")"
+            drive_file_id="$(jq -r '.drive_file_id // ""' "$job")"
+            source_url="$(jq -r '.source_url // ""' "$job")"
+            r2_key="$(jq -r '.r2_key' "$job")"
+            content_type="$(jq -r '.content_type // "image/webp"' "$job")"
+            expected_sha256="$(jq -r '.expected_sha256 // ""' "$job")"
+            expected_size="$(jq -r '(.expected_size // "") | tostring' "$job")"
+            min_bytes="$(jq -r '(.min_bytes // 10000) | tostring' "$job")"
+
+            if [[ -n "$source_url" ]]; then
+              echo "source_url is forbidden in push-triggered job JSON. Use workflow_dispatch for temporary URLs." >&2
+              exit 1
+            fi
+
             echo "JOB_FILE=$job"
           fi
 
+          if [[ -n "$source_url" ]]; then
+            echo "::add-mask::$source_url"
+          fi
+
           {
+            echo "source_mode=$source_mode"
             echo "drive_file_id=$drive_file_id"
+            echo "source_url=$source_url"
             echo "r2_key=$r2_key"
             echo "content_type=$content_type"
             echo "expected_sha256=$expected_sha256"
+            echo "expected_size=$expected_size"
             echo "min_bytes=$min_bytes"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate inputs
         shell: bash
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_MODE: ${{ steps.resolve.outputs.source_mode }}
           DRIVE_FILE_ID: ${{ steps.resolve.outputs.drive_file_id }}
+          SOURCE_URL: ${{ steps.resolve.outputs.source_url }}
           R2_KEY: ${{ steps.resolve.outputs.r2_key }}
           CONTENT_TYPE: ${{ steps.resolve.outputs.content_type }}
           EXPECTED_SHA256: ${{ steps.resolve.outputs.expected_sha256 }}
+          EXPECTED_SIZE: ${{ steps.resolve.outputs.expected_size }}
           MIN_BYTES: ${{ steps.resolve.outputs.min_bytes }}
         run: |
           set -euo pipefail
-          test -n "$AWS_ACCESS_KEY_ID"
-          test -n "$AWS_SECRET_ACCESS_KEY"
-          [[ "$DRIVE_FILE_ID" =~ ^[A-Za-z0-9_-]+$ ]]
+
+          test -n "$R2_UPLOAD_API_TOKEN"
+          [[ "$SOURCE_MODE" == "drive" || "$SOURCE_MODE" == "source_url" ]]
           [[ "$R2_KEY" =~ ^[A-Za-z0-9._/-]+$ ]]
           [[ "$R2_KEY" != /* ]]
           [[ "$R2_KEY" != *".."* ]]
           [[ "$CONTENT_TYPE" =~ ^image/(png|jpeg|webp|avif|gif)$ ]]
           [[ "$MIN_BYTES" =~ ^[0-9]+$ ]]
+
           if [[ -n "$EXPECTED_SHA256" ]]; then
             [[ "$EXPECTED_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]
           fi
+          if [[ -n "$EXPECTED_SIZE" ]]; then
+            [[ "$EXPECTED_SIZE" =~ ^[0-9]+$ ]]
+          fi
 
-      - name: Download exact image from Google Drive
+          if [[ "$SOURCE_MODE" == "drive" ]]; then
+            [[ "$DRIVE_FILE_ID" =~ ^[A-Za-z0-9_-]+$ ]]
+            test -z "$SOURCE_URL"
+          else
+            test "$EVENT_NAME" = "workflow_dispatch"
+            test -z "$DRIVE_FILE_ID"
+            [[ "$SOURCE_URL" == https://* ]]
+          fi
+
+      - name: Download exact source bytes
         shell: bash
         env:
+          SOURCE_MODE: ${{ steps.resolve.outputs.source_mode }}
           DRIVE_FILE_ID: ${{ steps.resolve.outputs.drive_file_id }}
+          SOURCE_URL: ${{ steps.resolve.outputs.source_url }}
+          CONTENT_TYPE: ${{ steps.resolve.outputs.content_type }}
           EXPECTED_SHA256: ${{ steps.resolve.outputs.expected_sha256 }}
+          EXPECTED_SIZE: ${{ steps.resolve.outputs.expected_size }}
           MIN_BYTES: ${{ steps.resolve.outputs.min_bytes }}
         run: |
           set -euo pipefail
+
           src="$RUNNER_TEMP/source-image"
+          rm -f "$src"
 
-          curl -fL --retry 2 --retry-all-errors \
-            -o "$src" \
-            "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t" || true
+          if [[ "$SOURCE_MODE" == "source_url" ]]; then
+            echo "::add-mask::$SOURCE_URL"
+            curl --fail-with-body --location --retry 2 --retry-all-errors \
+              --silent --show-error \
+              "$SOURCE_URL" \
+              -o "$src"
+          else
+            curl -fL --retry 2 --retry-all-errors \
+              -o "$src" \
+              "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t" || true
 
-          mime=$(file -b --mime-type "$src" 2>/dev/null || true)
-          if [[ "$mime" != image/* ]]; then
-            echo "Direct Drive download returned $mime; trying gdown to resolve Drive interstitial."
-            rm -f "$src"
-            python3 -m pip install --disable-pip-version-check --quiet gdown
-            python3 -m gdown "$DRIVE_FILE_ID" -O "$src"
+            mime="$(file -b --mime-type "$src" 2>/dev/null || true)"
+            if [[ "$mime" != image/* && -n "${GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON:-}" ]]; then
+              echo "Public Drive transport is unavailable; using authenticated Drive download."
+              rm -f "$src"
+
+              credentials="$RUNNER_TEMP/gdrive-service-account.json"
+              umask 077
+              printf '%s' "$GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON" > "$credentials"
+
+              python3 -m pip install --disable-pip-version-check --quiet google-auth
+
+              python3 - "$DRIVE_FILE_ID" "$src" "$credentials" <<'PY'
+          import sys
+          from urllib.parse import quote
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+
+          file_id, destination, credentials_path = sys.argv[1:4]
+          creds = service_account.Credentials.from_service_account_file(
+              credentials_path,
+              scopes=["https://www.googleapis.com/auth/drive.readonly"],
+          )
+          session = AuthorizedSession(creds)
+          url = f"https://www.googleapis.com/drive/v3/files/{quote(file_id, safe='')}"
+          response = session.get(
+              url,
+              params={"alt": "media", "supportsAllDrives": "true"},
+              stream=True,
+              timeout=60,
+          )
+          response.raise_for_status()
+
+          with open(destination, "wb") as output:
+              for chunk in response.iter_content(chunk_size=1024 * 1024):
+                  if chunk:
+                      output.write(chunk)
+          PY
+
+              rm -f "$credentials"
+            fi
+
+            mime="$(file -b --mime-type "$src" 2>/dev/null || true)"
+            if [[ "$mime" != image/* ]]; then
+              echo "Authenticated Drive transport is unavailable; trying gdown as final Drive fallback."
+              rm -f "$src"
+              python3 -m pip install --disable-pip-version-check --quiet gdown
+              python3 -m gdown "$DRIVE_FILE_ID" -O "$src" || true
+            fi
+
           fi
 
-          size=$(wc -c < "$src" | tr -d ' ')
-          mime=$(file -b --mime-type "$src")
-          sha=$(sha256sum "$src" | awk '{print $1}')
+          test -s "$src"
+
+          size="$(wc -c < "$src" | tr -d ' ')"
+          mime="$(file -b --mime-type "$src")"
+          sha="$(sha256sum "$src" | awk '{print $1}')"
+
           echo "SOURCE size=$size mime=$mime sha256=$sha"
 
-          if (( size < MIN_BYTES )); then
-            echo "Drive download is too small." >&2
-            exit 1
-          fi
           [[ "$mime" == image/* ]]
+          test "$mime" = "$CONTENT_TYPE"
+          (( size >= MIN_BYTES ))
+
+          if [[ -n "$EXPECTED_SIZE" ]]; then
+            test "$size" -eq "$EXPECTED_SIZE"
+          fi
           if [[ -n "$EXPECTED_SHA256" ]]; then
             test "${sha,,}" = "${EXPECTED_SHA256,,}"
           fi
 
-      - name: Upload exact bytes to R2
+      - name: Binary PUT exact bytes to R2
         shell: bash
         env:
           R2_KEY: ${{ steps.resolve.outputs.r2_key }}
           CONTENT_TYPE: ${{ steps.resolve.outputs.content_type }}
         run: |
           set -euo pipefail
+
           src="$RUNNER_TEMP/source-image"
-          aws s3 cp "$src" "s3://${R2_BUCKET}/${R2_KEY}" \
-            --endpoint-url "$R2_ENDPOINT" \
-            --content-type "$CONTENT_TYPE" \
-            --cache-control 'public,max-age=31536000,immutable'
+          public_url="${R2_PUBLIC_BASE}/${R2_KEY}"
+
+          response="$(
+            curl --fail-with-body --silent --show-error \
+              -X PUT \
+              "${R2_UPLOAD_BASE}/${R2_KEY}" \
+              -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
+              -H "Content-Type: ${CONTENT_TYPE}" \
+              -H "X-ASG-Overwrite: true" \
+              --data-binary "@${src}"
+          )"
+
+          src_size="$(wc -c < "$src" | tr -d ' ')"
+          echo "$response" | jq -e --arg url "$public_url" --argjson size "$src_size" '
+            .ok == true and .url == $url and .size == $size
+          ' >/dev/null
+
+          echo "Uploaded exact bytes to $public_url"
 
       - name: Verify R2 byte-for-byte
         shell: bash
@@ -173,28 +313,43 @@ jobs:
           R2_KEY: ${{ steps.resolve.outputs.r2_key }}
         run: |
           set -euo pipefail
+
           src="$RUNNER_TEMP/source-image"
           dst="$RUNNER_TEMP/r2-image"
-          public_url="https://img.likelyin.ru/${R2_KEY}"
-          curl -fsSL --retry 2 -o "$dst" "${public_url}?v=${GITHUB_RUN_ID}"
+          public_url="${R2_PUBLIC_BASE}/${R2_KEY}"
+
+          curl -fsSL --retry 2 \
+            -o "$dst" \
+            "${public_url}?verify=${GITHUB_RUN_ID}"
+
           cmp "$src" "$dst"
-          src_sha=$(sha256sum "$src" | awk '{print $1}')
-          dst_sha=$(sha256sum "$dst" | awk '{print $1}')
+
+          src_sha="$(sha256sum "$src" | awk '{print $1}')"
+          dst_sha="$(sha256sum "$dst" | awk '{print $1}')"
+          src_size="$(wc -c < "$src" | tr -d ' ')"
+          dst_size="$(wc -c < "$dst" | tr -d ' ')"
+
           test "$src_sha" = "$dst_sha"
-          echo "R2_OK url=$public_url size=$(wc -c < "$dst") sha256=$dst_sha"
+          test "$src_size" -eq "$dst_size"
+
+          echo "R2_OK url=$public_url size=$dst_size sha256=$dst_sha"
 
       - name: Summary
         shell: bash
         env:
+          SOURCE_MODE: ${{ steps.resolve.outputs.source_mode }}
           R2_KEY: ${{ steps.resolve.outputs.r2_key }}
         run: |
           set -euo pipefail
-          sha=$(sha256sum "$RUNNER_TEMP/source-image" | awk '{print $1}')
-          size=$(wc -c < "$RUNNER_TEMP/source-image" | tr -d ' ')
+
+          sha="$(sha256sum "$RUNNER_TEMP/source-image" | awk '{print $1}')"
+          size="$(wc -c < "$RUNNER_TEMP/source-image" | tr -d ' ')"
+
           {
             echo '### A.S Groups media uploaded'
             echo
-            echo "- URL: https://img.likelyin.ru/${R2_KEY}"
+            echo "- Source mode: $SOURCE_MODE"
+            echo "- URL: ${R2_PUBLIC_BASE}/${R2_KEY}"
             echo "- Bytes: $size"
             echo "- SHA-256: $sha"
             echo '- Verification: byte-for-byte OK'
