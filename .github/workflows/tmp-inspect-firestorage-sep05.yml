@@ -12,10 +12,32 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect public file API
+      - name: Capture download requests
         shell: bash
         run: |
           set -euo pipefail
-          url='https://api.firestorage.ai/dev/file/shares/KDXdRozgwrJj/files?maxResults=1000'
-          curl -L --silent --show-error "$url" -o files.json
-          jq -c . files.json
+          mkdir /tmp/pw && cd /tmp/pw
+          npm init -y >/dev/null 2>&1
+          npm install playwright-core@latest --silent
+          cat > inspect.mjs <<'EOF'
+          import { chromium } from 'playwright-core';
+          const browser = await chromium.launch({executablePath:'/usr/bin/google-chrome', headless:true, args:['--no-sandbox']});
+          const page = await browser.newPage({acceptDownloads:true});
+          page.on('request', r => { if (/download|file|share/i.test(r.url())) console.log('REQ', r.method(), r.url()); });
+          page.on('response', r => { if (/download|file|share/i.test(r.url())) console.log('RES', r.status(), r.url()); });
+          await page.goto('https://firestorage.ai/ja/f/KDXdRozgwrJj', {waitUntil:'networkidle'});
+          const buttons = page.getByRole('button', {name:'ダウンロード'});
+          console.log('BUTTONS', await buttons.count());
+          for (let i=0;i<await buttons.count();i++) {
+            try {
+              const dlPromise = page.waitForEvent('download', {timeout:10000});
+              await buttons.nth(i).click();
+              const dl = await dlPromise;
+              console.log('DOWNLOAD', i, dl.suggestedFilename(), dl.url());
+              const p = await dl.path();
+              console.log('PATH', p);
+            } catch(e) { console.log('DLERR', i, String(e)); }
+          }
+          await browser.close();
+          EOF
+          node inspect.mjs
