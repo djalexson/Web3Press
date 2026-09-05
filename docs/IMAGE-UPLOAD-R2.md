@@ -1,66 +1,97 @@
-# Image upload workflow: ChatGPT → R2 → WordPress
+# A.S Groups image transport: exact bytes -> R2 -> WordPress
 
-Это обязательный сценарий для обложек статей.
+Главный source of truth для публикации A.S Groups:
 
-## Эталонный успешный кейс
+`djalexson/asgroups-main/skills/asgroups-content-publishing/SKILL.md`
 
-Kwork cover, post 709:
+Постоянный транспорт изображений:
 
-- R2 URL: `https://img.likelyin.ru/2026/08/kwork-ogranicheniya-cover.png`
-- WordPress imported file: `https://asgroups.dev/wp-content/uploads/2026/08/kwork-ogranicheniya-cover.png`
-- post 709 был обновлён, новый пост не создавался
-- размер и SHA-256 были сверены с исходником
-- временные workflow были удалены после успешной проверки
-- Worker после операции остался защищён Bearer Token
+`.github/workflows/drive-to-r2-asgroups.yml`
 
-Рабочий upload workflow был подтверждён commit `6c695995ba3697df672dd334e6957bdcf29f5cde`.
+## Основной путь
 
-## Единственная рабочая схема
+Для обычной публикации использовать одну и ту же финальную картинку на всём пути:
 
-1. Взять исходный файл ChatGPT без перекодирования.
-2. Получить временный signed URL на исходные байты файла.
-3. GitHub Actions скачивает файл по signed URL.
-4. До загрузки проверить:
-   - MIME;
-   - размер файла;
-   - SHA-256.
-5. Выполнить обычный binary PUT в Worker:
+`ChatGPT/ImageGen -> final WebP -> Google Drive staging -> permanent GitHub Actions workflow -> binary PUT -> R2 -> publish-content.yml -> WordPress`
+
+Проверка обязательна:
+
+`SHA256(source) == SHA256(R2) == SHA256(WordPress featured media)`
+
+### Открытый Drive-файл
+
+Workflow сначала пробует стандартный `drive.usercontent.google.com` transport.
+
+### Закрытый Drive-файл
+
+Если публичный transport возвращает HTML/ошибку доступа, постоянный workflow умеет скачать тот же Drive-файл авторизованно через GitHub Secret:
+
+`GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON`
+
+Для этого staging-папка Google Drive должна быть один раз расшарена на `client_email` service account с правом Reader. После этого новые файлы в этой папке можно переносить по `drive_file_id` без ручного открытия доступа для каждого файла.
+
+Если service account не настроен, workflow оставляет `gdown` только как последний Drive fallback.
+
+## Аварийный direct source transport
+
+`workflow_dispatch` поддерживает:
+
+- `source_mode=source_url`;
+- `source_url` — временный HTTPS URL на exact bytes;
+- `r2_key`;
+- `content_type`;
+- `expected_sha256`;
+- `expected_size`;
+- `min_bytes`.
+
+Временный `source_url` разрешён только при ручном `workflow_dispatch` и маскируется в логах.
+
+Никогда не сохранять signed/source URL в `.github/asgroups-r2-jobs/*.json`, commit history, `content-queue` или статью. Push-triggered job JSON с `source_url` workflow намеренно отклоняет.
+
+## R2 upload
+
+Постоянный workflow делает обычный binary PUT через защищённый Worker:
 
 ```bash
 curl --fail-with-body \
   -X PUT \
   "https://upload.likelyin.ru/v1/upload/<object-key>" \
   -H "Authorization: Bearer ${R2_UPLOAD_API_TOKEN}" \
-  -H "Content-Type: image/png" \
+  -H "Content-Type: image/webp" \
   -H "X-ASG-Overwrite: true" \
-  --data-binary "@/tmp/cover.png"
+  --data-binary "@/tmp/source-image"
 ```
 
-6. Проверить публичный R2-объект по `https://img.likelyin.ru/<object-key>`:
-   - HTTP 200;
-   - тот же размер;
-   - тот же SHA-256;
-   - при необходимости `cmp` исходника и скачанного файла.
-7. В JSON существующей статьи изменить только `featured_media_url`.
-8. Для существующей статьи обязательно сохранять прежний `idempotency_key` и `update_existing: true`.
-9. Вызвать WordPress webhook / публикационный workflow.
-10. Проверить, что WordPress обновил именно существующий post, а не создал дубль.
-11. Проверить WordPress featured media:
-   - MIME;
-   - размеры;
-   - SHA-256 скачанного файла;
-   - наличие новой картинки в HTML статьи.
-12. Telegram должен получить уведомление об успехе или ошибке.
-13. После успеха удалить временный upload/verify workflow.
+Токен берётся только из GitHub Secrets.
 
-## Что запрещено использовать как основной путь
+После PUT workflow скачивает объект с:
 
-- base64 для передачи изображения в R2;
-- хранение бинарной картинки в GitHub;
-- Google Drive как промежуточное хранилище;
-- повторная генерация картинки, если пользователь дал точный исходник;
-- изменение формата или качества без явного запроса;
-- создание нового WordPress post при обновлении существующей статьи.
+`https://img.likelyin.ru/<object-key>`
+
+и проверяет:
+
+- MIME;
+- размер;
+- SHA-256;
+- `cmp` исходника и R2-файла.
+
+## После R2
+
+Для новой статьи сначала должен успешно завершиться transport в R2, и только затем коммитится JSON в `content-queue/` и запускается штатный `publish-content.yml`.
+
+Для существующей статьи сохраняются прежние `idempotency_key` и post, используется `update_existing=true`, дубликат не создаётся.
+
+WordPress media считается подтверждённой только после повторного скачивания и сравнения SHA-256 с R2.
+
+## Запрещено
+
+- заменять нужную генерацию другой картинкой ради успешного workflow;
+- использовать base64 как транспорт изображения;
+- хранить бинарные изображения в GitHub;
+- хранить signed/source URLs в репозитории;
+- менять формат/качество после фиксации финального SHA без явной причины;
+- считать загрузку успешной без byte-for-byte проверки;
+- создавать новый WordPress post при обновлении существующей статьи.
 
 ## R2 endpoints
 
@@ -68,8 +99,6 @@ Upload API:
 
 `https://upload.likelyin.ru/v1/upload/<path>`
 
-Public image CDN:
+Public CDN:
 
 `https://img.likelyin.ru/<path>`
-
-Worker должен оставаться в обычном режиме Bearer Token после завершения операции.
