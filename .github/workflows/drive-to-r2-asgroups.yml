@@ -1,0 +1,137 @@
+name: A.S Groups — Google Drive to R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      drive_file_id:
+        description: "Google Drive file ID of the exact image"
+        required: true
+        type: string
+      r2_key:
+        description: "Destination key, e.g. 2026/09/article-cover.webp"
+        required: true
+        type: string
+      content_type:
+        description: "MIME type"
+        required: true
+        default: "image/webp"
+        type: string
+      expected_sha256:
+        description: "Optional expected SHA-256 of source bytes"
+        required: false
+        default: ""
+        type: string
+      min_bytes:
+        description: "Minimum expected file size"
+        required: false
+        default: "10000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://d0abfd352b18b34de7b19d7afdece235.r2.cloudflarestorage.com
+      R2_BUCKET: asgroups-images
+    steps:
+      - name: Validate inputs
+        shell: bash
+        env:
+          DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
+          R2_KEY: ${{ inputs.r2_key }}
+          CONTENT_TYPE: ${{ inputs.content_type }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          MIN_BYTES: ${{ inputs.min_bytes }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_ACCESS_KEY_ID"
+          test -n "$AWS_SECRET_ACCESS_KEY"
+          [[ "$DRIVE_FILE_ID" =~ ^[A-Za-z0-9_-]+$ ]]
+          [[ "$R2_KEY" =~ ^[A-Za-z0-9._/-]+$ ]]
+          [[ "$R2_KEY" != /* ]]
+          [[ "$R2_KEY" != *".."* ]]
+          [[ "$CONTENT_TYPE" =~ ^image/(png|jpeg|webp|avif|gif)$ ]]
+          [[ "$MIN_BYTES" =~ ^[0-9]+$ ]]
+          if [[ -n "$EXPECTED_SHA256" ]]; then
+            [[ "$EXPECTED_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]
+          fi
+
+      - name: Download exact image from Google Drive
+        shell: bash
+        env:
+          DRIVE_FILE_ID: ${{ inputs.drive_file_id }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          MIN_BYTES: ${{ inputs.min_bytes }}
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source-image"
+          curl -fL --retry 2 --retry-all-errors \
+            -o "$src" \
+            "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t"
+
+          size=$(wc -c < "$src" | tr -d ' ')
+          mime=$(file -b --mime-type "$src")
+          sha=$(sha256sum "$src" | awk '{print $1}')
+          echo "SOURCE size=$size mime=$mime sha256=$sha"
+
+          if (( size < MIN_BYTES )); then
+            echo "Drive download is too small. The file may be private or Drive may have returned an HTML access page." >&2
+            exit 1
+          fi
+          [[ "$mime" == image/* ]]
+          if [[ -n "$EXPECTED_SHA256" ]]; then
+            test "${sha,,}" = "${EXPECTED_SHA256,,}"
+          fi
+
+      - name: Upload exact bytes to R2
+        shell: bash
+        env:
+          R2_KEY: ${{ inputs.r2_key }}
+          CONTENT_TYPE: ${{ inputs.content_type }}
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source-image"
+          aws s3 cp "$src" "s3://${R2_BUCKET}/${R2_KEY}" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type "$CONTENT_TYPE" \
+            --cache-control 'public,max-age=31536000,immutable'
+
+      - name: Verify R2 byte-for-byte
+        shell: bash
+        env:
+          R2_KEY: ${{ inputs.r2_key }}
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/source-image"
+          dst="$RUNNER_TEMP/r2-image"
+          public_url="https://img.likelyin.ru/${R2_KEY}"
+          curl -fsSL --retry 2 -o "$dst" "${public_url}?v=${GITHUB_RUN_ID}"
+          cmp "$src" "$dst"
+          src_sha=$(sha256sum "$src" | awk '{print $1}')
+          dst_sha=$(sha256sum "$dst" | awk '{print $1}')
+          test "$src_sha" = "$dst_sha"
+          echo "R2_OK url=$public_url size=$(wc -c < "$dst") sha256=$dst_sha"
+
+      - name: Summary
+        shell: bash
+        env:
+          R2_KEY: ${{ inputs.r2_key }}
+        run: |
+          set -euo pipefail
+          sha=$(sha256sum "$RUNNER_TEMP/source-image" | awk '{print $1}')
+          size=$(wc -c < "$RUNNER_TEMP/source-image" | tr -d ' ')
+          {
+            echo '### A.S Groups media uploaded'
+            echo
+            echo "- URL: https://img.likelyin.ru/${R2_KEY}"
+            echo "- Bytes: $size"
+            echo "- SHA-256: $sha"
+            echo '- Verification: byte-for-byte OK'
+          } >> "$GITHUB_STEP_SUMMARY"
