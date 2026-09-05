@@ -12,13 +12,10 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Render firestorage share page
+      - name: Inspect public file API
         shell: bash
         run: |
           set -euo pipefail
-          chrome=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
-          echo "CHROME=$chrome"
-          test -n "$chrome"
-          "$chrome" --headless --no-sandbox --disable-gpu --virtual-time-budget=8000 --dump-dom 'https://firestorage.ai/ja/f/KDXdRozgwrJj' > rendered.html
-          echo "DOM_SIZE=$(wc -c < rendered.html)"
-          grep -niE 'a_wide_modern|a_wide_well|download|href=|src=' rendered.html | tail -120 || true
+          url='https://api.firestorage.ai/dev/file/shares/KDXdRozgwrJj/files?maxResults=1000'
+          curl -L --silent --show-error "$url" -o files.json
+          jq -c . files.json
