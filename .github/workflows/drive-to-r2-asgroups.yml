@@ -137,7 +137,7 @@ jobs:
             echo "Direct Drive download returned $mime; trying gdown to resolve Drive interstitial."
             rm -f "$src"
             python3 -m pip install --disable-pip-version-check --quiet gdown
-            python3 -m gdown --id "$DRIVE_FILE_ID" --output "$src"
+            python3 -m gdown "$DRIVE_FILE_ID" -O "$src"
           fi
 
           size=$(wc -c < "$src" | tr -d ' ')
