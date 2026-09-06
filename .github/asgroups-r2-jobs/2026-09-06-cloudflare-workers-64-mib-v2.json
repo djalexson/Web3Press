@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1bMsT85hutU-BZsmZok4fBtm2Y_S7N2WF",
+  "r2_key": "2026/09/cloudflare-workers-64-mib-v2.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "cf134cd6d90ea0d91642561b94fcb15abed3d8ac81f68172655bcd8079fc2bbb",
+  "expected_size": 189548,
+  "min_bytes": 10000
+}
