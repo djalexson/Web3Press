@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1lImUAXS7U7C1FMo6Flbk0sur1u8pbDRY",
+  "r2_key": "2026/09/gemini-3-8-flash-github-copilot.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "726a0b652fccc44808cb93410e3833e7d4d779a70a459dc80e262bdbc5cd40f8",
+  "expected_size": 42266,
+  "min_bytes": 10000
+}
