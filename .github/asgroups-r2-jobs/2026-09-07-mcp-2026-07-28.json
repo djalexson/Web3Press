@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "13V3Jzh75bpMyC-xJPLMPkKzF_BNC20j6",
+  "r2_key": "2026/09/2026-09-07-mcp-2026-07-28.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "dab2a72432226bcf5eb1154bec4378db42c0bb9577f38697df2df7bba6dbdcab",
+  "expected_size": 141242,
+  "min_bytes": 10000
+}
