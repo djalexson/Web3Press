@@ -1,8 +1,9 @@
 {
-  "source_mode": "generate",
-  "generate_prompt": "One single cohesive professional editorial scene for a service article about WordPress accessibility and WCAG 2.2 auditing. A modern developer desk with one laptop showing an abstract website interface, clear keyboard focus rings, contrast-check geometry and accessibility cues represented visually, premium realistic photography, blue and teal accents, clean composition. One scene only. No collage, no split screen, no panels, no cards, no poster layout, no dashboard, no text, no letters, no logos.",
-  "generate_seed": 9603,
+  "source_mode": "drive",
+  "drive_file_id": "1YLFO7pJ4Ww_zOR4qOkG0okLDbTNZP6f2",
   "r2_key": "2026/09/wordpress-wcag-accessibility-audit.webp",
   "content_type": "image/webp",
+  "expected_sha256": "25e8da203efa27f29564164a84805a8c1f84bbc3ad6174bc616acce4dfceb6d4",
+  "expected_size": 35502,
   "min_bytes": 30000
 }
