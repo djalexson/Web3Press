@@ -1,0 +1,8 @@
+{
+  "source_mode": "generate",
+  "generate_prompt": "One single cohesive premium technology editorial scene for a service article about WordPress backup and disaster recovery. One laptop connected to a secure glowing storage vault, website database files flowing into one protected backup capsule and a restore arrow returning to the laptop, server-room atmosphere, dark blue and green accents, realistic photography, strong depth. One scene only. No collage, no split screen, no panels, no cards, no poster layout, no dashboard, no text, no letters, no logos.",
+  "generate_seed": 9605,
+  "r2_key": "2026/09/wordpress-backup-disaster-recovery.webp",
+  "content_type": "image/webp",
+  "min_bytes": 30000
+}
