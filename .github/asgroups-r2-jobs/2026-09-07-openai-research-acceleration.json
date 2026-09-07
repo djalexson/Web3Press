@@ -1,8 +1,9 @@
 {
-  "source_mode": "generate",
-  "generate_prompt": "One single cohesive cinematic editorial scene for a technology article about AI research acceleration. A futuristic AI research laboratory at night with one central workstation, luminous coding-agent threads converging into one abstract neural research core, human-supervised scientific atmosphere, premium realistic 3D photography, dark navy and electric blue, strong depth and clean composition. One scene only. No collage, no split screen, no panels, no cards, no poster layout, no dashboard, no text, no letters, no logos.",
-  "generate_seed": 9502,
+  "source_mode": "drive",
+  "drive_file_id": "12yIAsu57Hw1y-twY0qY0PXYGB4dDhnxh",
   "r2_key": "2026/09/openai-research-acceleration-coding-agents.webp",
   "content_type": "image/webp",
+  "expected_sha256": "b6114be60f9e6f80a0b41420b56d1a48dba6569aa343b487faabbf9c5bb61928",
+  "expected_size": 37886,
   "min_bytes": 30000
 }
