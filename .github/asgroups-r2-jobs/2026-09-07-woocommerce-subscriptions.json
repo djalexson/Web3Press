@@ -1,0 +1,8 @@
+{
+  "source_mode": "generate",
+  "generate_prompt": "One single cohesive premium ecommerce editorial scene for a service article about recurring subscriptions in a WooCommerce store. One laptop with an abstract product checkout, a circular recurring-payment loop around one package and a calendar, secure payment symbolism, modern studio, purple and blue accents, realistic 3D photography, strong depth. One scene only. No collage, no split screen, no panels, no cards, no poster layout, no dashboard, no text, no letters, no logos.",
+  "generate_seed": 9604,
+  "r2_key": "2026/09/woocommerce-subscriptions-recurring-payments.webp",
+  "content_type": "image/webp",
+  "min_bytes": 30000
+}
