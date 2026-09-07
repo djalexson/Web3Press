@@ -1,8 +1,9 @@
 {
-  "source_mode": "generate",
-  "generate_prompt": "One single cohesive cinematic editorial scene for a developer news article about multi-model AI orchestration. A dark developer studio with one laptop, several distinct luminous AI model streams converging into one central routing prism above the workstation and emerging as one clean code flow, premium realistic 3D photography, violet blue and cyan light, strong depth. One scene only. No collage, no split screen, no panels, no cards, no poster layout, no dashboard, no text, no letters, no logos.",
-  "generate_seed": 9602,
+  "source_mode": "drive",
+  "drive_file_id": "1UBIfz8tEXGm9hCySSUS2OaszXOqsYPDl",
   "r2_key": "2026/09/github-hydrafusion-multi-model-copilot.webp",
   "content_type": "image/webp",
+  "expected_sha256": "fd2fa2876d8f27552e63355c5d2c304b8bcd8a8ec9092a9568c62403ab110f42",
+  "expected_size": 31892,
   "min_bytes": 30000
 }
