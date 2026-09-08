@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1eYXjQVIOlFVLtTVKZ2_vDlmVRRYpwUuD",
+  "r2_key": "2026/09/cloudflare-automatic-key-exchange.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "e1d6f67246b8616705ec39da9f927f66bfbf69f618b00c9c288e2ef6c36af05d",
+  "expected_size": 60546,
+  "min_bytes": 10000
+}
