@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1q45pHuBafU88jHaTdX-s1tKNCvHwR3iY",
+  "r2_key": "2026/09/wordpress-backup-restore.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "bd3898ac2d1f80bff9ddc896e6f51f3cc71f1646db2c227c2eeba92c5fe24d17",
+  "expected_size": 154392,
+  "min_bytes": 10000
+}
