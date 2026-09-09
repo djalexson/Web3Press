@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1YViJM6xdlzad0Zh66bns8u1UUlizwihG",
+  "r2_key": "2026/09/github-copilot-jetbrains-enterprise-sandbox.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "29f913934e51b844c3dcba4e83e90258888eecfb464c9ea710663825e59c3948",
+  "expected_size": 69332,
+  "min_bytes": 10000
+}
