@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1HGR1ekK7xUB0ZjexKTC_OrnlhULCKACP",
+  "r2_key": "2026/09/cloudflare-waf-nextjs-rce-block.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "33bb44f7f58be35bdb3437e5bfc7c02839bd43f06ccc9c3b3684bd67d8a5b5f1",
+  "expected_size": 80572,
+  "min_bytes": 10000
+}
