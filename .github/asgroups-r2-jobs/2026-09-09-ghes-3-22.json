@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1oCivkIY_ZOiM1PWp6kTojn_smyp5OjYC",
+  "r2_key": "2026/09/github-enterprise-server-3-22.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "6f1da3c671dfc3ccd96326f3c0bb12bd955c369b9ca92b288eebc07b4b2678c0",
+  "expected_size": 105214,
+  "min_bytes": 10000
+}
