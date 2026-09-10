@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1uZ9XGpaSOINMZVFtSFhA7QvUl37KSmZG",
+  "r2_key": "2026/09/codeql-2-27-linux-arm64.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "727f5f4557264ec84136f469cc98bad80f455ddf8ed69b5028bbdb096a205485",
+  "expected_size": 135786,
+  "min_bytes": 10000
+}
