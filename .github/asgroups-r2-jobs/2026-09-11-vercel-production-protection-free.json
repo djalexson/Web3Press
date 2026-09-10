@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1Xqf8DGWQ0CzI16-Mp7sRaabQXcLkYVF_",
+  "r2_key": "2026/09/vercel-production-deployment-protection-free.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "90774dfa7a11df7a04c4bef95a451c9956d5bcdd00111d6b1646eca2b9a7f237",
+  "expected_size": 37866,
+  "min_bytes": 10000
+}
