@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1D3BSD6FIAVVvfcCKYdrSFUNOUuJQ8w7w",
+  "r2_key": "2026/09/wordpress-nodejs-24-npm-11.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "7400ad5bd3234539a425913b64126ff173e6592a3343ec8bd2baf5412da85ecd",
+  "expected_size": 47228,
+  "min_bytes": 10000
+}
