@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1EKZJRkCtdABDAg2VhFF1b4I95FtWx-Yi",
+  "r2_key": "2026/09/cloudflare-workers-node-module-registry.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "db1b91ab78e17fc1e9d3a3e6ff168e12eaf58e36c3355f70aac5e6b722577546",
+  "expected_size": 62782,
+  "min_bytes": 10000
+}
