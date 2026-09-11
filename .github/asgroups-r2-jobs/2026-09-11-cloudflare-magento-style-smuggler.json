@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1xQp2_lPhR5jM3EOHn1ufKgr9O5haHkGk",
+  "r2_key": "2026/09/cloudflare-magento-style-smuggler-zero-day.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "fd65a20b9cba98511f8030d195279916a0d62e419879cbe2c5f5b03c72eee25b",
+  "expected_size": 72332,
+  "min_bytes": 10000
+}
