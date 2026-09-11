@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1FFLoMXsekJ7GkqQKrwbBBw7jRJJYBbTT",
+  "r2_key": "2026/09/wordpress-7-1-1-rc1-chto-proverit.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "13975338f6aa7afb18f0e58ce4ae408e2ef08f3bb8d4fe33349c5abc6eb5e52e",
+  "expected_size": 82262,
+  "min_bytes": 10000
+}
