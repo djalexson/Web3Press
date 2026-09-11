@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1y2OipBK72Pibb6WPe02oXfemAw0USYu6",
+  "r2_key": "2026/09/cloudflare-post-quantum-dnssec-1111.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "dc5464f720fe039f392a02644b2fee8d8b3f6fd32efeceb091a1c6f5531682e1",
+  "expected_size": 87922,
+  "min_bytes": 10000
+}
