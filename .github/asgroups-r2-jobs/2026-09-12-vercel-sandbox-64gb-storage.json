@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1ZOhP0giylvKafKty-T64aqmODVLfNx7S",
+  "r2_key": "2026/09/vercel-sandbox-64gb-storage.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "ab57d2dce6362b74485995b37de31928102cf9f5401475b111b3a29772b7db30",
+  "expected_size": 32732,
+  "min_bytes": 10000
+}
