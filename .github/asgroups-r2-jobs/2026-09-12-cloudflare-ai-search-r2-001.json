@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1FGBEqg5FfOxzmArGfvGC3lNXemKz3Ovt",
+  "r2_key": "2026/09/cloudflare-ai-search-r2-content-type.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "7373a29218ceb5f1e6abe0aefa9359a6224de666dbabcd6b007e58916d6befe2",
+  "expected_size": 101592,
+  "min_bytes": 10000
+}
