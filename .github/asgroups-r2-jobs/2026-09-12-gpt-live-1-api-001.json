@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1hJFLPoVwuYv1zB8r2NVusiOzW-9Hv0wU",
+  "r2_key": "2026/09/gpt-live-1-api-voice.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "90a34661cb848c593da4ee422cfcc6ea07f1e28ddb68f52701088d10fd01148c",
+  "expected_size": 64854,
+  "min_bytes": 10000
+}
