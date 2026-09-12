@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1fLQgtc1W3TyYz7sxNv4Icrr2o44GUHbY",
+  "r2_key": "2026/09/openai-navier-stokes-ai-proof.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "aab000e0e72d6038b0ce971308ac0fbb277d92b4b108ff9a9d5be50a4eda58c7",
+  "expected_size": 123672,
+  "min_bytes": 10000
+}
