@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1DpZrkI9vbYVmFLUljc9CmcZT5LA72doO",
+  "r2_key": "2026/09/openai-habitat-rust-storage.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "ad25ef8ece510e5c6d691bd693d693a8df8ba16dceaa0684d58f6d76492f83ab",
+  "expected_size": 66026,
+  "min_bytes": 10000
+}
