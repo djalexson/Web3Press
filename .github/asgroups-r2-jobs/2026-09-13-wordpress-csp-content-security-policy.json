@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1yUoo1gh2PCtt9LFtkGBXt_mzve9Vsvaw",
+  "r2_key": "asgroups/2026/09/wordpress-csp-content-security-policy.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "1eeee4c8fd25bd921934c40223121f9728c64149f7e3a4fc9cc18858eb5fe09d",
+  "expected_size": 39602,
+  "min_bytes": 10000
+}
