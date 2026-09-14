@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1Z8wmR7hZUF7t3p41OvxuCVOySP0DAl6Z",
+  "r2_key": "2026/09/wordpress-regenerate-thumbnails-image-sizes.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "03bc244d7bf17774609f45c5e063534c96c1109d91ef0f152d6816774ee6f3ab",
+  "expected_size": 77388,
+  "min_bytes": 10000
+}
