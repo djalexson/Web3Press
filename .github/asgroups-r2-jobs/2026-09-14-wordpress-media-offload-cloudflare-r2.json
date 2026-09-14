@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1MqFczsgS1Q5e13g7iK_pRY9DThmYsRfq",
+  "r2_key": "2026/09/wordpress-media-offload-cloudflare-r2.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "10844c4b157a43826ce0b4b33110f8dc11d56abcc6d1b461c2b28e49517946c7",
+  "expected_size": 59040,
+  "min_bytes": 10000
+}
