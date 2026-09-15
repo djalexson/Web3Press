@@ -221,9 +221,9 @@ jobs:
           PY
           elif [[ "$SOURCE_MODE" == source_url ]]; then
             echo "::add-mask::$SOURCE_URL"
-            curl --fail-with-body --location --retry 2 --retry-all-errors --silent --show-error "$SOURCE_URL" -o "$src"
+            curl --fail-with-body --location --retry 2 --retry-all-errors --connect-timeout 15 --max-time 90 --silent --show-error "$SOURCE_URL" -o "$src"
           else
-            curl -fL --retry 2 --retry-all-errors -o "$src" "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t" || true
+            curl -fL --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 --silent --show-error -o "$src" "https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t" || true
             mime="$(file -b --mime-type "$src" 2>/dev/null || true)"
             if [[ "$mime" != image/* && -n "${GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON:-}" ]]; then
               rm -f "$src"
@@ -248,7 +248,7 @@ jobs:
             if [[ "$mime" != image/* ]]; then
               rm -f "$src"
               python3 -m pip install --disable-pip-version-check --quiet gdown
-              python3 -m gdown "$DRIVE_FILE_ID" -O "$src"
+              timeout 60s python3 -m gdown "$DRIVE_FILE_ID" -O "$src" || true
             fi
           fi
 
