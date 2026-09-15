@@ -1,0 +1,10 @@
+{
+  "idempotency_key": "2026-09-15-woocommerce-coupons-r2-001",
+  "source_mode": "drive",
+  "drive_file_id": "1R-1rgjVWhC8Mb6DILQuniJM8RtgSrni_",
+  "r2_key": "2026/09/woocommerce-kupony-promokody-nastrojka.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "8ec97a65db903ebf02c23d209d164685f255c9387834cdbdfbbcab2b36cfcd66",
+  "expected_size": 38134,
+  "min_bytes": 10000
+}
