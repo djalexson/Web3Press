@@ -1,0 +1,10 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1EvMl2Yq-h4qCefvVkjXcK8uTa9_S7dAg",
+  "r2_key": "2026/09/woocommerce-downloadable-products-zashchita-fajlov.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "73573e24f81a52c0e0b8d63a289a17b21489e300419a7e9f5f4bdcd2fb74357c",
+  "expected_size": 71130,
+  "min_bytes": 10000,
+  "retry": 2
+}
