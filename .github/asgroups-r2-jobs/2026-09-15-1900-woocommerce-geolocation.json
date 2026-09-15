@@ -1,0 +1,10 @@
+{
+  "idempotency_key": "2026-09-15-woocommerce-geolocation-r2-001",
+  "source_mode": "drive",
+  "drive_file_id": "1Yp3JyOovUl06leNwMgQhbC6cGTBITlkI",
+  "r2_key": "2026/09/woocommerce-geolocation-maxmind-nastrojka.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "d5e2ec5760db06ee56cd665c2ccc690232cb936855e0284837b8902b3d99e7d1",
+  "expected_size": 62456,
+  "min_bytes": 10000
+}
