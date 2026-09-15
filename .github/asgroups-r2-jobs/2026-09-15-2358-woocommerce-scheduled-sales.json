@@ -1,10 +1,10 @@
 {
   "source_mode": "drive",
-  "drive_file_id": "1fxYnnpwbrCBwd5eNudAOaaf0oKY8clbR",
+  "drive_file_id": "1Qfs359i9-m6XZTkALfMYhuuMBTJodxUe",
   "r2_key": "2026/09/woocommerce-scheduled-sales-skidki-po-raspisaniyu.webp",
   "content_type": "image/webp",
-  "expected_sha256": "4188bca99bdb029829b036c8c5bcb0fd374b05d37cb610cefb2b759b8e4a0556",
-  "expected_size": 64092,
+  "expected_sha256": "a045491f64bd6f97c5e2fb17d6517c272eaa6c6a009617351406c132ce1b86ff",
+  "expected_size": 80858,
   "min_bytes": 10000,
   "retry": 2
 }
