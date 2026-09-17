@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1BULD3ocWk9z80bj7NseSY2AtrWdLoqvT",
+  "r2_key": "2026/09/wordpress-loopback-site-health.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "c7f093eb13671aa450bc06f336ad1c4a1d84f041bad1bc4f28ef909d8bdb4af2",
+  "expected_size": 55214,
+  "min_bytes": 10000
+}
