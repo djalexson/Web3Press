@@ -1,0 +1,9 @@
+{
+  "source_mode": "drive",
+  "drive_file_id": "1jtcZgVO8bTQLwM2zcIMm5rThoHioHUFV",
+  "r2_key": "asgroups/2026/09/cloudflare-workers-granular-permissions-ai-cicd.webp",
+  "content_type": "image/webp",
+  "expected_sha256": "664092c2591975ecb525c45253c9869540b44ee562c199f2b4dc56aebc072d7a",
+  "expected_size": 78524,
+  "min_bytes": 10000
+}
