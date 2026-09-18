@@ -10,19 +10,21 @@
 
 ## Основной путь
 
-Для обычной публикации использовать одну и ту же финальную картинку на всём пути:
+Для обычной A.S Groups публикации primary transport выполняется в `djalexson/asgroups-main/.github/workflows/generate-recraft-cover.yml`:
 
-`ChatGPT/ImageGen -> final WebP -> Google Drive staging -> permanent GitHub Actions workflow -> binary PUT -> R2 -> publish-content.yml -> WordPress`
+`Recraft -> exact WebP artifact -> direct binary PUT -> R2 -> publish-content.yml -> WordPress`
+
+Google Drive staging больше не входит в критический путь. Он используется только как необязательный best-effort архив после подтверждённого R2/публикации. `BLOCKED_FILE_REFERENCE` не считается причиной останавливать WordPress/Facebook.
 
 Проверка обязательна:
 
 `SHA256(source) == SHA256(R2) == SHA256(WordPress featured media)`
 
-### Открытый Drive-файл
+### Legacy/fallback: открытый Drive-файл
 
-Workflow сначала пробует стандартный `drive.usercontent.google.com` transport.
+Если нужен старый fallback-маршрут, workflow сначала пробует стандартный `drive.usercontent.google.com` transport.
 
-### Закрытый Drive-файл
+### Legacy/fallback: закрытый Drive-файл
 
 Если публичный transport возвращает HTML/ошибку доступа, постоянный workflow умеет скачать тот же Drive-файл авторизованно через GitHub Secret:
 
@@ -32,7 +34,7 @@ Workflow сначала пробует стандартный `drive.usercontent
 
 Если service account не настроен, workflow оставляет `gdown` только как последний Drive fallback.
 
-## Аварийный direct source transport
+## Fallback direct source transport
 
 `workflow_dispatch` поддерживает:
 
@@ -77,7 +79,7 @@ curl --fail-with-body \
 
 ## После R2
 
-Для новой статьи сначала должен успешно завершиться transport в R2, и только затем коммитится JSON в `content-queue/` и запускается штатный `publish-content.yml`.
+Для новой статьи сначала должен успешно завершиться direct transport в R2, и только затем коммитится JSON в `content-queue/` и запускается штатный `publish-content.yml`. Неудачный необязательный архив в Google Drive не меняет этот статус.
 
 Для существующей статьи сохраняются прежние `idempotency_key` и post, используется `update_existing=true`, дубликат не создаётся.
 
