@@ -4,17 +4,19 @@ For ANY task involving A.S Groups / `asgroups.dev` article covers, Google Drive 
 
 `djalexson/asgroups-main/skills/asgroups-content-publishing/SKILL.md`
 
-The permanent generic image -> R2 workflow in this repository is:
+The permanent generic fallback image -> R2 workflow in this repository is:
 
 `.github/workflows/drive-to-r2-asgroups.yml`
 
-Use that workflow first. Do not invent a new upload workflow for each article.
+Do not invent a new fallback upload workflow for each article.
 
-Normal automated route:
+The PRIMARY A.S Groups route now lives in `djalexson/asgroups-main/.github/workflows/generate-recraft-cover.yml` and is:
 
-`final image -> Google Drive staging -> drive-to-r2-asgroups.yml -> binary PUT -> R2 -> publish-content.yml -> WordPress`
+`final exact Recraft artifact -> direct binary PUT -> R2 -> publish-content.yml -> WordPress`
 
-For private Drive files the permanent workflow supports authenticated download through `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON` when the staging folder has been shared to that service account.
+Google Drive is optional best-effort archival only. A Drive failure such as `BLOCKED_FILE_REFERENCE` must not block an already valid R2/publication path.
+
+For legacy/fallback private Drive files this workflow supports authenticated download through `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON` when the staging folder has been shared to that service account.
 
 For emergency exact-byte transport, the same permanent workflow supports `source_mode=source_url` only through manual `workflow_dispatch`. Never commit signed/source URLs into `.github/asgroups-r2-jobs/*.json` or repository history.
 
